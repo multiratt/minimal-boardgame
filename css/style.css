@@ -656,6 +656,22 @@ main {
   pointer-events: none;
 }
 
+.othello-dot {
+  width: 24%;
+  height: 24%;
+  border-radius: 50%;
+  background-color: var(--text-muted);
+  opacity: 0.45;
+  pointer-events: none;
+  transition: transform 0.18s ease, opacity 0.18s ease, background-color 0.18s ease;
+}
+
+.square:hover .othello-dot {
+  transform: scale(1.45);
+  opacity: 0.9;
+  background-color: var(--accent-white);
+}
+
 /* --- PIECE RENDERING --- */
 .piece {
   width: 80%;

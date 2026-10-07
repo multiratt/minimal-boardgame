@@ -98,5 +98,10 @@ export function getPieceSVG(gameMode, piece) {
     return SVG_PIECES[key] || "";
   }
 
+  // 4. Othello / Reversi: Pure minimal discs (zero inner icons)
+  if (gameMode === "othello") {
+    return "";
+  }
+
   return "";
 }

@@ -15,6 +15,7 @@ export const translations = {
     gameCategoryLabel: "เลือกเกมที่ต้องการเล่น:",
     gameCheckersTab: "หมากฮอส",
     gameChessTab: "หมากรุก",
+    gameOthelloTab: "โอเทลโล่",
     rulesSelectorLabel: "เลือกกติกาการเล่น:",
     
     // Checkers Variants
@@ -28,6 +29,11 @@ export const translations = {
     ruleWesternChess: "หมากรุกสากล (King, Queen, Rook, Bishop, Knight, Pawn)",
     ruleMakrukShort: "หมากรุกไทย",
     ruleWesternShort: "หมากรุกสากล",
+
+    // Othello Variants
+    ruleOthello: "กติกาสากล (8x8 • พลิกหนีบหมาก)",
+    ruleOthelloShort: "โอเทลโล่",
+    ruleOthelloDesc: "วางหมากประกบหัวท้ายเพื่อพลิกสี ฝ่ายมีหมากมากที่สุดชนะ",
 
     currentRuleTitle: "กติกาปัจจุบัน:",
     rulesHeader: "กติกาการเล่น",
@@ -113,6 +119,14 @@ export const translations = {
     ruleWesternDesc4: "• Pawn เดินหน้า 1 ช่อง (ตาแรกเดินได้ 2) กินทแยงหน้า เลื่อนขั้นแถวสุดท้าย",
     ruleWesternDesc5: "• ชนะเมื่อรุกฆาต (Checkmate) หรือฝ่ายตรงข้ามหมดเวลา",
 
+    // Rules Details: Othello (Reversi)
+    ruleOthelloDesc1: "• กระดาน 8x8 เริ่มต้น 4 ตัวตรงกลาง (ฝ่ายสีดำเริ่มก่อน)",
+    ruleOthelloDesc2: "• วางหมากในช่องว่างที่สามารถประกบหมากฝ่ายตรงข้ามในแนวตรงหรือแนวทแยง",
+    ruleOthelloDesc3: "• หมากฝ่ายตรงข้ามที่ถูกประกบทั้งหมดจะถูกพลิกกลับเป็นสีของเรา",
+    ruleOthelloDesc4: "• หากไม่มีตาเดินที่พลิกหมากได้ จะถูกข้ามตาเดินไปยังฝ่ายตรงข้ามอัตโนมัติ",
+    ruleOthelloDesc5: "• จบเกมเมื่อกระดานเต็มหรือทั้งสองฝ่ายไม่มีตาเดิน ฝ่ายที่มีหมากมากกว่าชนะ",
+    othelloPassNotice: "ไม่มีตาเดิน! ข้ามตาเดินไปยังฝ่ายตรงข้าม",
+
     // Stalling / Repetition Endgame Rule
     endgameRuleDesc: "• กติกาเดินหนี: หากไม่มีการกินติดต่อกัน 10 ตาเดิน จะเริ่มนับถอยหลังอีก 20 ตาเดิน หากครบแล้วยังไม่จบจะตัดสินให้ฝ่ายที่มีหมากมากกว่าชนะทันที",
     endgameCountdownBadge: "⚡ กติกาเดินหนี: บังคับจบเกมในอีก {n} ตาเดิน (ใครหมากเยอะกว่าชนะ)",
@@ -128,6 +142,7 @@ export const translations = {
     reasonStalemate: "อับ! เสมอกัน (Stalemate)",
     reasonTimeout: "หมดเวลาในตาเดิน",
     reasonResign: "ฝ่ายตรงข้ามขอยอมแพ้",
+    reasonDiscsCount: "นับจำนวนหมากเมื่อจบเกม (ฝ่ายมีหมากมากกว่า ชนะ!)",
     reasonTurnLimitWhite: "หมดกำหนดตาเดิน (ฝ่ายสีขาวมีหมากมากกว่า ชนะ!)",
     reasonTurnLimitBlack: "หมดกำหนดตาเดิน (ฝ่ายสีดำมีหมากมากกว่า ชนะ!)",
     reasonTurnLimitDraw: "หมดกำหนดตาเดิน (ทั้งสองฝ่ายมีหมากเท่ากัน เสมอ!)",
@@ -188,6 +203,7 @@ export const translations = {
     gameCategoryLabel: "Select Game Type:",
     gameCheckersTab: "Checkers",
     gameChessTab: "Chess",
+    gameOthelloTab: "Othello",
     rulesSelectorLabel: "Select Rules Mode:",
 
     // Checkers Variants
@@ -201,6 +217,11 @@ export const translations = {
     ruleWesternChess: "Western Chess (Standard International)",
     ruleMakrukShort: "Thai Chess (Makruk)",
     ruleWesternShort: "Western Chess",
+
+    // Othello Variants
+    ruleOthello: "Standard (8x8 • Reversi Flips)",
+    ruleOthelloShort: "Othello",
+    ruleOthelloDesc: "Trap opponent discs between your pieces to flip them. Most discs wins.",
 
     currentRuleTitle: "Current Rules:",
     rulesHeader: "Rules Overview",
@@ -286,6 +307,14 @@ export const translations = {
     ruleWesternDesc4: "• Pawn: forward 1 (2 on 1st move), captures diag, promotes at back rank",
     ruleWesternDesc5: "• Win by checkmate or opponent timeout",
 
+    // Rules Details: Othello (Reversi)
+    ruleOthelloDesc1: "• 8x8 board with 4 center discs (Black moves first)",
+    ruleOthelloDesc2: "• Place a disc on an empty square that outflanks enemy discs horizontally, vertically or diagonally",
+    ruleOthelloDesc3: "• All outflanked opponent discs are flipped to your color",
+    ruleOthelloDesc4: "• If no legal moves available, your turn is automatically passed",
+    ruleOthelloDesc5: "• Game ends when board is full or neither can move. Most discs wins",
+    othelloPassNotice: "No legal moves! Turn passed to opponent",
+
     // Stalling / Repetition Endgame Rule
     endgameRuleDesc: "• Stalling Rule: If 10 consecutive turns pass without any capture, a 20-turn countdown begins. If game doesn't end, player with most pieces wins.",
     endgameCountdownBadge: "⚡ Stalling Rule: Match ends in {n} moves (Most pieces wins)",
@@ -301,6 +330,7 @@ export const translations = {
     reasonStalemate: "Stalemate (Draw)",
     reasonTimeout: "Turn timer expired",
     reasonResign: "Opponent resigned",
+    reasonDiscsCount: "Endgame disc count comparison (Most discs wins!)",
     reasonTurnLimitWhite: "Turn limit reached (White has more pieces, Wins!)",
     reasonTurnLimitBlack: "Turn limit reached (Black has more pieces, Wins!)",
     reasonTurnLimitDraw: "Turn limit reached (Equal pieces, Draw!)",

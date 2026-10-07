@@ -35,6 +35,15 @@ import {
   getAIChessMove
 } from "./rules-chess.js";
 
+import {
+  createOthelloBoard,
+  getLegalOthelloMoves,
+  applyOthelloMove,
+  checkOthelloGameOver,
+  getAIOthelloMove,
+  countOthelloPieces
+} from "./rules-othello.js";
+
 import { NetworkManager, MAX_ROOMS } from "./network.js";
 import {
   t,
@@ -59,10 +68,11 @@ class BoardGameApp {
   constructor() {
     this.network = new NetworkManager();
 
-    // Mode: "checkers_thai" | "checkers_international" | "chess_makruk" | "chess_western"
+    // Mode: "checkers_thai" | "checkers_international" | "chess_makruk" | "chess_western" | "othello"
     this.activeMode = localStorage.getItem("board_game_mode") || "checkers_thai";
-    this.activeCategory = this.activeMode.startsWith("chess") ? "chess" : "checkers";
+    this.activeCategory = this.activeMode.startsWith("chess") ? "chess" : (this.activeMode === "othello" ? "othello" : "checkers");
     this.botDifficulty = "medium";
+    this.botColor = BLACK;
 
     // Board state
     this.board = null;
@@ -159,12 +169,16 @@ class BoardGameApp {
 
       tabCheckers: document.getElementById("tab-checkers"),
       tabChess: document.getElementById("tab-chess"),
+      tabOthello: document.getElementById("tab-othello"),
       checkersOptions: document.getElementById("checkers-options"),
       chessOptions: document.getElementById("chess-options"),
+      othelloOptions: document.getElementById("othello-options"),
       ruleThaiBtn: document.getElementById("rule-thai-btn"),
       ruleIntBtn: document.getElementById("rule-int-btn"),
       ruleMakrukBtn: document.getElementById("rule-makruk-btn"),
       ruleWesternBtn: document.getElementById("rule-western-btn"),
+      ruleOthelloBtn: document.getElementById("rule-othello-btn"),
+      capturedCard: document.querySelector(".captured-card"),
 
       startBotBtn: document.getElementById("start-bot-btn"),
       diffBtns: document.querySelectorAll(".diff-btn"),
@@ -264,11 +278,17 @@ class BoardGameApp {
 
     this.dom.tabCheckers.addEventListener("click", () => this.setCategory("checkers"));
     this.dom.tabChess.addEventListener("click", () => this.setCategory("chess"));
+    if (this.dom.tabOthello) {
+      this.dom.tabOthello.addEventListener("click", () => this.setCategory("othello"));
+    }
 
     this.dom.ruleThaiBtn.addEventListener("click", () => this.setMode("checkers_thai"));
     this.dom.ruleIntBtn.addEventListener("click", () => this.setMode("checkers_international"));
     this.dom.ruleMakrukBtn.addEventListener("click", () => this.setMode("chess_makruk"));
     this.dom.ruleWesternBtn.addEventListener("click", () => this.setMode("chess_western"));
+    if (this.dom.ruleOthelloBtn) {
+      this.dom.ruleOthelloBtn.addEventListener("click", () => this.setMode("othello"));
+    }
 
     this.dom.saveNameBtn.addEventListener("click", () => {
       const name = this.dom.nicknameInput.value.trim();
@@ -386,21 +406,26 @@ class BoardGameApp {
 
   setCategory(category) {
     this.activeCategory = category;
+    [this.dom.tabCheckers, this.dom.tabChess, this.dom.tabOthello].forEach(t => t && t.classList.remove("active"));
+    [this.dom.checkersOptions, this.dom.chessOptions, this.dom.othelloOptions].forEach(o => o && o.classList.add("view-hidden"));
+
     if (category === "checkers") {
-      this.dom.tabCheckers.classList.add("active");
-      this.dom.tabChess.classList.remove("active");
-      this.dom.checkersOptions.classList.remove("view-hidden");
-      this.dom.chessOptions.classList.add("view-hidden");
+      if (this.dom.tabCheckers) this.dom.tabCheckers.classList.add("active");
+      if (this.dom.checkersOptions) this.dom.checkersOptions.classList.remove("view-hidden");
       if (!this.activeMode.startsWith("checkers")) {
         this.setMode("checkers_thai");
       }
-    } else {
-      this.dom.tabCheckers.classList.remove("active");
-      this.dom.tabChess.classList.add("active");
-      this.dom.checkersOptions.classList.add("view-hidden");
-      this.dom.chessOptions.classList.remove("view-hidden");
+    } else if (category === "chess") {
+      if (this.dom.tabChess) this.dom.tabChess.classList.add("active");
+      if (this.dom.chessOptions) this.dom.chessOptions.classList.remove("view-hidden");
       if (!this.activeMode.startsWith("chess")) {
         this.setMode("chess_makruk");
+      }
+    } else if (category === "othello") {
+      if (this.dom.tabOthello) this.dom.tabOthello.classList.add("active");
+      if (this.dom.othelloOptions) this.dom.othelloOptions.classList.remove("view-hidden");
+      if (this.activeMode !== "othello") {
+        this.setMode("othello");
       }
     }
   }
@@ -416,7 +441,7 @@ class BoardGameApp {
   }
 
   updateModeButtonsUI() {
-    [this.dom.ruleThaiBtn, this.dom.ruleIntBtn, this.dom.ruleMakrukBtn, this.dom.ruleWesternBtn].forEach(b => {
+    [this.dom.ruleThaiBtn, this.dom.ruleIntBtn, this.dom.ruleMakrukBtn, this.dom.ruleWesternBtn, this.dom.ruleOthelloBtn].forEach(b => {
       if (b) b.classList.remove("active");
     });
 
@@ -424,6 +449,7 @@ class BoardGameApp {
     else if (this.activeMode === "checkers_international") this.dom.ruleIntBtn.classList.add("active");
     else if (this.activeMode === "chess_makruk") this.dom.ruleMakrukBtn.classList.add("active");
     else if (this.activeMode === "chess_western") this.dom.ruleWesternBtn.classList.add("active");
+    else if (this.activeMode === "othello" && this.dom.ruleOthelloBtn) this.dom.ruleOthelloBtn.classList.add("active");
 
     this.renderSidebarRules();
   }
@@ -449,10 +475,16 @@ class BoardGameApp {
         badgeText = t("ruleWesternShort");
         rules = [t("ruleWesternDesc1"), t("ruleWesternDesc2"), t("ruleWesternDesc3"), t("ruleWesternDesc4"), t("ruleWesternDesc5")];
         break;
+      case "othello":
+        badgeText = t("ruleOthelloShort");
+        rules = [t("ruleOthelloDesc1"), t("ruleOthelloDesc2"), t("ruleOthelloDesc3"), t("ruleOthelloDesc4"), t("ruleOthelloDesc5")];
+        break;
     }
 
-    // Add Stalling rule to every game mode
-    rules.push(t("endgameRuleDesc"));
+    // Add Stalling rule only to piece capture games (not Othello)
+    if (this.activeMode !== "othello") {
+      rules.push(t("endgameRuleDesc"));
+    }
 
     this.dom.currentRuleBadge.textContent = badgeText;
     this.dom.sidebarRulesList.innerHTML = rules.map(r => `<div>${r}</div>`).join("");
@@ -502,6 +534,8 @@ class BoardGameApp {
         return { icon: "♟️", name: t("ruleMakrukShort"), isEmpty: false };
       case "chess_western":
         return { icon: "👑", name: t("ruleWesternShort"), isEmpty: false };
+      case "othello":
+        return { icon: "🔘", name: t("ruleOthelloShort"), isEmpty: false };
       default:
         return { icon: "🎲", name: mode, isEmpty: false };
     }
@@ -581,7 +615,13 @@ class BoardGameApp {
   // --- START GAME ---
   startBotGame() {
     this.mode = "bot";
-    this.myColor = WHITE;
+    if (this.activeMode === "othello") {
+      this.myColor = BLACK;
+      this.botColor = WHITE;
+    } else {
+      this.myColor = WHITE;
+      this.botColor = BLACK;
+    }
     this.role = "player1";
     this.updateMatchTitle();
 
@@ -593,8 +633,14 @@ class BoardGameApp {
 
   updateBotPlayerNames() {
     const playerName = this.network.getNickname() || t("defaultPlayerName");
-    this.dom.whitePlayerName.textContent = `${playerName} (${t("youLabel")})`;
-    this.dom.blackPlayerName.textContent = `${t("botName")} (${t(`diff${this.botDifficulty.charAt(0).toUpperCase() + this.botDifficulty.slice(1)}`)})`;
+    const botTitle = `${t("botName")} (${t(`diff${this.botDifficulty.charAt(0).toUpperCase() + this.botDifficulty.slice(1)}`)})`;
+    if (this.myColor === BLACK) {
+      this.dom.blackPlayerName.textContent = `${playerName} (${t("youLabel")})`;
+      this.dom.whitePlayerName.textContent = botTitle;
+    } else {
+      this.dom.whitePlayerName.textContent = `${playerName} (${t("youLabel")})`;
+      this.dom.blackPlayerName.textContent = botTitle;
+    }
   }
 
   joinOnlineRoom(roomId, asSpectator = false) {
@@ -605,7 +651,7 @@ class BoardGameApp {
     if (existingRoom && existingRoom.mode) {
       this.activeMode = existingRoom.mode;
       localStorage.setItem("board_game_mode", this.activeMode);
-      this.activeCategory = this.activeMode.startsWith("chess") ? "chess" : "checkers";
+      this.activeCategory = this.activeMode.startsWith("chess") ? "chess" : (this.activeMode === "othello" ? "othello" : "checkers");
       this.updateCategoryTabsUI();
       this.updateModeButtonsUI();
     }
@@ -613,11 +659,20 @@ class BoardGameApp {
     const res = this.network.joinRoom(roomId, asSpectator, this.activeMode);
     this.role = res.role;
 
-    if (this.role === "player1") this.myColor = WHITE;
-    else if (this.role === "player2") this.myColor = BLACK;
-    else {
-      this.role = "spectator";
-      this.myColor = null;
+    if (this.activeMode === "othello") {
+      if (this.role === "player1") this.myColor = BLACK;
+      else if (this.role === "player2") this.myColor = WHITE;
+      else {
+        this.role = "spectator";
+        this.myColor = null;
+      }
+    } else {
+      if (this.role === "player1") this.myColor = WHITE;
+      else if (this.role === "player2") this.myColor = BLACK;
+      else {
+        this.role = "spectator";
+        this.myColor = null;
+      }
     }
 
     this.updateMatchTitle(roomId);
@@ -644,6 +699,7 @@ class BoardGameApp {
       case "checkers_international": modeLabel = t("ruleIntShort"); break;
       case "chess_makruk": modeLabel = t("ruleMakrukShort"); break;
       case "chess_western": modeLabel = t("ruleWesternShort"); break;
+      case "othello": modeLabel = t("ruleOthelloShort"); break;
     }
 
     if (this.mode === "bot") {
@@ -657,19 +713,33 @@ class BoardGameApp {
   }
 
   updateOnlinePlayerNames(room) {
-    let p1 = room && room.p1 ? room.p1.name : t("playerWhite");
-    let p2 = room && room.p2 ? room.p2.name : (this.role === "spectator" ? t("playerBlack") : t("waitingOpponentJoin"));
+    if (this.activeMode === "othello") {
+      let pBlack = room && room.p1 ? room.p1.name : t("playerBlack");
+      let pWhite = room && room.p2 ? room.p2.name : (this.role === "spectator" ? t("playerWhite") : t("waitingOpponentJoin"));
 
-    if (this.role === "player1") {
-      p1 = `${p1} (${t("youLabel")})`;
-    } else if (this.role === "player2") {
-      if (room && room.p2) {
-        p2 = `${p2} (${t("youLabel")})`;
+      if (this.role === "player1") {
+        pBlack = `${pBlack} (${t("youLabel")})`;
+      } else if (this.role === "player2") {
+        if (room && room.p2) {
+          pWhite = `${pWhite} (${t("youLabel")})`;
+        }
       }
-    }
+      this.dom.blackPlayerName.textContent = pBlack;
+      this.dom.whitePlayerName.textContent = pWhite;
+    } else {
+      let p1 = room && room.p1 ? room.p1.name : t("playerWhite");
+      let p2 = room && room.p2 ? room.p2.name : (this.role === "spectator" ? t("playerBlack") : t("waitingOpponentJoin"));
 
-    this.dom.whitePlayerName.textContent = p1;
-    this.dom.blackPlayerName.textContent = p2;
+      if (this.role === "player1") {
+        p1 = `${p1} (${t("youLabel")})`;
+      } else if (this.role === "player2") {
+        if (room && room.p2) {
+          p2 = `${p2} (${t("youLabel")})`;
+        }
+      }
+      this.dom.whitePlayerName.textContent = p1;
+      this.dom.blackPlayerName.textContent = p2;
+    }
   }
 
   handleOnlineRoomUpdate(room, action, meta) {
@@ -771,7 +841,7 @@ class BoardGameApp {
   resetGameRound() {
     this.clearDisconnectCountdown();
     this.clearPauseSession();
-    this.turn = WHITE;
+    this.turn = this.activeMode === "othello" ? BLACK : WHITE;
     this.selectedSquare = null;
     this.legalMovesForSelected = [];
     this.multiJumpFrom = null;
@@ -814,6 +884,17 @@ class BoardGameApp {
         this.board = chessInit.board;
         break;
       }
+      case "othello":
+        this.board = createOthelloBoard();
+        break;
+    }
+
+    if (this.dom.capturedCard) {
+      if (this.activeMode === "othello") {
+        this.dom.capturedCard.classList.add("view-hidden");
+      } else {
+        this.dom.capturedCard.classList.remove("view-hidden");
+      }
     }
 
     this.updateCapturedUI();
@@ -833,6 +914,10 @@ class BoardGameApp {
       this.dom.timerSeconds.textContent = "--";
       this.dom.timerBarFill.style.width = "100%";
       this.dom.timerBarFill.classList.remove("timer-danger");
+    }
+
+    if (this.mode === "bot" && this.turn === this.botColor && !this.isGameOver) {
+      this.triggerBotTurn();
     }
   }
 
@@ -870,6 +955,23 @@ class BoardGameApp {
         pieceEl.innerHTML = getPieceSVG(this.activeMode, piece);
         sq.appendChild(pieceEl);
       }
+    }
+
+    if (this.activeMode === "othello") {
+      this.dom.mandatoryNotice.classList.add("view-hidden");
+      if (!this.isGameOver && !this.isPaused && (this.role === "spectator" || this.turn === this.myColor)) {
+        const legalMoves = getLegalOthelloMoves(this.board, this.turn);
+        legalMoves.forEach(m => {
+          const targetIdx = m.to.r * BOARD_SIZE + m.to.c;
+          const targetSq = squares[targetIdx];
+          if (targetSq) {
+            const dot = document.createElement("div");
+            dot.className = "othello-dot";
+            targetSq.appendChild(dot);
+          }
+        });
+      }
+      return;
     }
 
     if (this.selectedSquare) {
@@ -913,6 +1015,16 @@ class BoardGameApp {
     if (this.isAnimating || this.isGameOver || this.role === "spectator" || this.isPaused) return;
     if (!this.isMatchActive()) return;
     if (this.turn !== this.myColor) return;
+
+    if (this.activeMode === "othello") {
+      if (this.board[r][c] !== null) return;
+      const legalMoves = getLegalOthelloMoves(this.board, this.turn);
+      const move = legalMoves.find(m => m.to.r === r && m.to.c === c);
+      if (move) {
+        this.executeMoveWithAnimation(move);
+      }
+      return;
+    }
 
     if (this.multiJumpFrom) {
       if (r !== this.multiJumpFrom.r || c !== this.multiJumpFrom.c) {
@@ -977,6 +1089,86 @@ class BoardGameApp {
       this.gameStats.whiteMoves++;
     } else {
       this.gameStats.blackMoves++;
+    }
+
+    if (this.activeMode === "othello") {
+      const toIdx = move.to.r * BOARD_SIZE + move.to.c;
+      const squares = this.dom.boardContainer.children;
+      const toSq = squares[toIdx];
+
+      // 1. Place disc
+      if (toSq) {
+        toSq.innerHTML = "";
+        const newPieceEl = document.createElement("div");
+        newPieceEl.className = `piece ${this.turn === WHITE ? "piece-white" : "piece-black"} piece-just-landed`;
+        toSq.appendChild(newPieceEl);
+        playMove();
+      }
+
+      // 2. Animate flips
+      if (move.flipped && move.flipped.length > 0) {
+        const flipElements = [];
+        for (const f of move.flipped) {
+          const fIdx = f.r * BOARD_SIZE + f.c;
+          const fSq = squares[fIdx];
+          const fPiece = fSq ? fSq.querySelector(".piece") : null;
+          if (fPiece) {
+            fPiece.classList.add("disc-flipping");
+            flipElements.push(fPiece);
+          }
+        }
+
+        await new Promise(res => setTimeout(res, 175));
+        for (const el of flipElements) {
+          if (this.turn === WHITE) {
+            el.classList.remove("piece-black");
+            el.classList.add("piece-white");
+          } else {
+            el.classList.remove("piece-white");
+            el.classList.add("piece-black");
+          }
+        }
+        playCapture();
+        await new Promise(res => setTimeout(res, 175));
+      }
+
+      // 3. Engine Application
+      const outcome = applyOthelloMove(this.board, move, this.turn);
+      this.board = outcome.board;
+      this.turn = outcome.nextTurn;
+
+      // Notice for Pass
+      if (outcome.passed) {
+        this.dom.mandatoryNotice.textContent = t("othelloPassNotice");
+        this.dom.mandatoryNotice.classList.remove("view-hidden");
+        setTimeout(() => {
+          if (!this.isGameOver && this.dom.mandatoryNotice.textContent === t("othelloPassNotice")) {
+            this.dom.mandatoryNotice.classList.add("view-hidden");
+          }
+        }, 2500);
+      } else {
+        this.dom.mandatoryNotice.classList.add("view-hidden");
+      }
+
+      this.renderBoard();
+      this.updateTurnUI();
+      this.updatePieceCounts();
+      this.isAnimating = false;
+
+      if (this.mode === "online" && !fromRemote) {
+        this.network.sendMove(move, this.board, this.turn, this.timeRemaining);
+      }
+
+      if (this.isMatchActive()) {
+        this.startTurnTimer();
+      }
+
+      this.checkCurrentGameOver();
+
+      if (this.mode === "bot" && this.turn === this.botColor && !this.isGameOver) {
+        this.triggerBotTurn();
+      }
+      return;
     }
 
     const fromIdx = move.from.r * BOARD_SIZE + move.from.c;
@@ -1136,13 +1328,17 @@ class BoardGameApp {
 
     this.checkCurrentGameOver();
 
-    if (this.mode === "bot" && this.turn === BLACK && !this.isGameOver) {
+    if (this.mode === "bot" && this.turn === this.botColor && !this.isGameOver) {
       this.triggerBotTurn();
     }
   }
 
   getPieceCounts() {
     if (!this.board) return { white: 0, black: 0 };
+    if (this.activeMode === "othello") {
+      const counts = countOthelloPieces(this.board);
+      return { white: counts.white, black: counts.black };
+    }
     let white = 0, black = 0;
     for (let r = 0; r < BOARD_SIZE; r++) {
       for (let c = 0; c < BOARD_SIZE; c++) {
@@ -1169,6 +1365,8 @@ class BoardGameApp {
       if (legal.length === 0) {
         status = { isOver: true, winner: this.turn === WHITE ? BLACK : WHITE, reason: "checkmate" };
       }
+    } else if (this.activeMode === "othello") {
+      status = checkOthelloGameOver(this.board, this.turn);
     }
 
     if (status.isOver) {
@@ -1202,6 +1400,9 @@ class BoardGameApp {
         if (best && !this.isPaused) this.executeMoveWithAnimation(best);
       } else if (this.activeMode === "chess_western") {
         const best = getAIChessMove(this.chessFen, BLACK, this.botDifficulty);
+        if (best && !this.isPaused) this.executeMoveWithAnimation(best);
+      } else if (this.activeMode === "othello") {
+        const best = getAIOthelloMove(this.board, this.botColor, this.botDifficulty);
         if (best && !this.isPaused) this.executeMoveWithAnimation(best);
       }
     }, delay);
@@ -1388,6 +1589,7 @@ class BoardGameApp {
       case "turn_limit_draw": reasonText = t("reasonTurnLimitDraw"); break;
       case "disconnect_timeout": reasonText = t("reasonDisconnectTimeout"); break;
       case "opponent_left": reasonText = t("opponentDisconnected"); break;
+      case "discs_count": reasonText = t("reasonDiscsCount"); break;
       default: reasonText = "";
     }
 
@@ -1412,8 +1614,13 @@ class BoardGameApp {
     const formattedTotalMoves = `${this.gameStats.totalMoves} ${t("statMovesUnit")}` +
       (this.gameStats.totalMoves > 0 ? ` (${t("statWhiteShort")} ${this.gameStats.whiteMoves} / ${t("statBlackShort")} ${this.gameStats.blackMoves})` : "");
 
-    const formattedCaptures = `${t("statWhiteShort")} ${this.capturedBlack} / ${t("statBlackShort")} ${this.capturedWhite}`;
-    const formattedPromotions = `${this.gameStats.promotions} ${t("statPromotionsUnit")}`;
+    const counts = this.getPieceCounts();
+    const formattedCaptures = this.activeMode === "othello"
+      ? `${t("statWhiteShort")} ${counts.white} / ${t("statBlackShort")} ${counts.black}`
+      : `${t("statWhiteShort")} ${this.capturedBlack} / ${t("statBlackShort")} ${this.capturedWhite}`;
+    const formattedPromotions = this.activeMode === "othello"
+      ? "—"
+      : `${this.gameStats.promotions} ${t("statPromotionsUnit")}`;
 
     let modeName = "";
     switch (this.activeMode) {
@@ -1421,6 +1628,7 @@ class BoardGameApp {
       case "checkers_international": modeName = t("ruleIntShort"); break;
       case "chess_makruk": modeName = t("ruleMakrukShort"); break;
       case "chess_western": modeName = t("ruleWesternShort"); break;
+      case "othello": modeName = t("ruleOthelloShort"); break;
     }
 
     if (this.dom.modalStatMode) this.dom.modalStatMode.textContent = modeName;
@@ -1628,7 +1836,7 @@ class BoardGameApp {
       this.resumeTurnTimer();
     }
 
-    if (this.mode === "bot" && this.turn === BLACK && !this.isGameOver) {
+    if (this.mode === "bot" && this.turn === this.botColor && !this.isGameOver) {
       this.triggerBotTurn();
     }
   }

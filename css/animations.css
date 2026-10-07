@@ -152,3 +152,22 @@
 .move-indicator {
   animation: breatheDot 1.4s infinite ease-in-out;
 }
+
+/* 5. OTHELLO DISC FLIP (การพลิกหมากโอเทลโล่) */
+@keyframes discFlip {
+  0% {
+    transform: scale(1) rotateY(0deg);
+  }
+  50% {
+    transform: scale(1.15) rotateY(90deg);
+  }
+  100% {
+    transform: scale(1) rotateY(180deg);
+  }
+}
+
+.disc-flipping {
+  animation: discFlip 0.35s ease-in-out forwards !important;
+  z-index: 25;
+}
+
