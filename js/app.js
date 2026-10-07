@@ -1,9 +1,12 @@
 // app.js - Main Application Orchestrator for Minimal Checkers
+// Supports Thai Checkers (8 pieces, Flying King) & International Checkers (12 pieces, 1-step King)
 
 import {
   BOARD_SIZE,
   WHITE,
   BLACK,
+  RULE_THAI,
+  RULE_INTERNATIONAL,
   createInitialBoard,
   cloneBoard,
   getLegalMoves,
@@ -32,7 +35,6 @@ import {
   playVictory
 } from "./sfx.js";
 
-// Crown SVG markup for Kings (Horses)
 const CROWN_SVG = `
 <svg class="king-crown" viewBox="0 0 24 24">
   <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z"/>
@@ -43,15 +45,16 @@ class CheckersApp {
     this.network = new NetworkManager();
 
     // Game state
+    this.ruleVariant = localStorage.getItem("checkers_rule_variant") || RULE_THAI;
     this.mode = "bot"; // "bot" | "online"
     this.botDifficulty = "medium";
-    this.board = createInitialBoard();
+    this.board = createInitialBoard(this.ruleVariant);
     this.turn = WHITE;
     this.myColor = WHITE;
     this.role = "player1"; // "player1" | "player2" | "spectator"
     this.selectedSquare = null;
     this.legalMovesForSelected = [];
-    this.multiJumpFrom = null; // Locked piece during multi-jump
+    this.multiJumpFrom = null;
     this.isAnimating = false;
     this.isGameOver = false;
 
@@ -74,27 +77,40 @@ class CheckersApp {
       gameView: document.getElementById("game-view"),
       nicknameInput: document.getElementById("nickname-input"),
       saveNameBtn: document.getElementById("save-name-btn"),
+      ruleThaiBtn: document.getElementById("rule-thai-btn"),
+      ruleIntBtn: document.getElementById("rule-int-btn"),
       startBotBtn: document.getElementById("start-bot-btn"),
       diffBtns: document.querySelectorAll(".diff-btn"),
       roomsGrid: document.getElementById("rooms-grid"),
       refreshRoomsBtn: document.getElementById("refresh-rooms-btn"),
+      
+      // Sidebar elements
       exitLobbyBtn: document.getElementById("exit-lobby-btn"),
       resignGameBtn: document.getElementById("resign-game-btn"),
+      restartGameBtn: document.getElementById("restart-game-btn"),
       matchInfoTitle: document.getElementById("match-info-title"),
+      whitePlayerBox: document.getElementById("white-player-box"),
+      blackPlayerBox: document.getElementById("black-player-box"),
       whitePlayerName: document.getElementById("white-player-name"),
       blackPlayerName: document.getElementById("black-player-name"),
+      whitePiecesCount: document.getElementById("white-pieces-count"),
+      blackPiecesCount: document.getElementById("black-pieces-count"),
       turnBadge: document.getElementById("turn-badge"),
       timerSeconds: document.getElementById("timer-seconds"),
       timerBarFill: document.getElementById("timer-bar-fill"),
       capturedWhiteCount: document.getElementById("captured-white-count"),
       capturedBlackCount: document.getElementById("captured-black-count"),
       mandatoryNotice: document.getElementById("mandatory-notice"),
+      currentRuleBadge: document.getElementById("current-rule-badge"),
+      sidebarRulesList: document.getElementById("sidebar-rules-list"),
+
       boardContainer: document.getElementById("board-container"),
       gameOverModal: document.getElementById("game-over-modal"),
       modalWinnerTitle: document.getElementById("modal-winner-title"),
       modalWinnerReason: document.getElementById("modal-winner-reason"),
       modalReplayBtn: document.getElementById("modal-replay-btn"),
       modalLobbyBtn: document.getElementById("modal-lobby-btn"),
+      
       langThBtn: document.getElementById("lang-th-btn"),
       langEnBtn: document.getElementById("lang-en-btn"),
       soundBtn: document.getElementById("sound-btn"),
@@ -104,11 +120,11 @@ class CheckersApp {
 
     this.initEvents();
     this.initBoardDOM();
+    this.updateRuleVariantUI();
     this.renderLobbyRooms(this.network.roomsState);
     updateDOMTranslations();
     this.updateSoundButtonUI();
 
-    // Restore saved nickname
     if (this.network.getNickname()) {
       this.dom.nicknameInput.value = this.network.getNickname();
     }
@@ -124,7 +140,7 @@ class CheckersApp {
         }
       };
     } catch (e) {
-      console.warn("Web Worker fallback to direct execution:", e);
+      console.warn("Web Worker fallback:", e);
       this.aiWorker = null;
     }
   }
@@ -133,22 +149,27 @@ class CheckersApp {
     // Language Switcher
     this.dom.langThBtn.addEventListener("click", () => {
       setLang("th");
-      this.updateHeaderTexts();
-      this.updateTurnUI();
-      this.renderLobbyRooms(this.network.roomsState);
+      this.onLanguageChanged();
     });
 
     this.dom.langEnBtn.addEventListener("click", () => {
       setLang("en");
-      this.updateHeaderTexts();
-      this.updateTurnUI();
-      this.renderLobbyRooms(this.network.roomsState);
+      this.onLanguageChanged();
     });
 
     // Sound toggle
     this.dom.soundBtn.addEventListener("click", () => {
       toggleSound();
       this.updateSoundButtonUI();
+    });
+
+    // Rule variant toggles in Lobby
+    this.dom.ruleThaiBtn.addEventListener("click", () => {
+      this.setRuleVariant(RULE_THAI);
+    });
+
+    this.dom.ruleIntBtn.addEventListener("click", () => {
+      this.setRuleVariant(RULE_INTERNATIONAL);
     });
 
     // Nickname save
@@ -191,6 +212,16 @@ class CheckersApp {
     this.dom.resignGameBtn.addEventListener("click", () => {
       if (this.isGameOver || this.role === "spectator") return;
       this.handleResign(this.myColor);
+    });
+
+    // Restart game
+    this.dom.restartGameBtn.addEventListener("click", () => {
+      if (this.mode === "bot") {
+        this.resetGameRound();
+      } else if (this.mode === "online" && this.role !== "spectator") {
+        this.network.sendRestart();
+        this.resetGameRound();
+      }
     });
 
     // Game Over Modal buttons
@@ -240,12 +271,50 @@ class CheckersApp {
       }
     };
 
-    this.network.onOpponentLeft = (opponentName) => {
+    this.network.onOpponentLeft = () => {
       if (this.mode === "online" && !this.isGameOver) {
         const winner = this.myColor;
         this.endGame(winner, "opponent_left");
       }
     };
+  }
+
+  setRuleVariant(variant) {
+    this.ruleVariant = variant;
+    localStorage.setItem("checkers_rule_variant", variant);
+    this.updateRuleVariantUI();
+  }
+
+  updateRuleVariantUI() {
+    if (this.ruleVariant === RULE_THAI) {
+      this.dom.ruleThaiBtn.classList.add("active");
+      this.dom.ruleIntBtn.classList.remove("active");
+    } else {
+      this.dom.ruleThaiBtn.classList.remove("active");
+      this.dom.ruleIntBtn.classList.add("active");
+    }
+    this.renderSidebarRules();
+  }
+
+  renderSidebarRules() {
+    const isThai = this.ruleVariant === RULE_THAI;
+    this.dom.currentRuleBadge.textContent = isThai ? t("ruleThaiShort") : t("ruleIntShort");
+
+    const rules = isThai
+      ? [t("ruleThaiDesc1"), t("ruleThaiDesc2"), t("ruleThaiDesc3"), t("ruleThaiDesc4"), t("ruleThaiDesc5")]
+      : [t("ruleIntDesc1"), t("ruleIntDesc2"), t("ruleIntDesc3"), t("ruleIntDesc4"), t("ruleIntDesc5")];
+
+    this.dom.sidebarRulesList.innerHTML = rules.map(r => `<div>${r}</div>`).join("");
+  }
+
+  onLanguageChanged() {
+    updateDOMTranslations();
+    this.updateSoundButtonUI();
+    this.updateMatchTitle();
+    this.updateTurnUI();
+    this.updatePieceCounts();
+    this.renderSidebarRules();
+    this.renderLobbyRooms(this.network.roomsState);
   }
 
   updateSoundButtonUI() {
@@ -254,12 +323,7 @@ class CheckersApp {
     this.dom.soundText.textContent = on ? t("soundOn") : t("soundOff");
   }
 
-  updateHeaderTexts() {
-    updateDOMTranslations();
-    this.updateSoundButtonUI();
-  }
-
-  // --- LOBBY RENDERING ---
+  // --- LOBBY ROOMS ---
   renderLobbyRooms(roomsState) {
     this.dom.roomsGrid.innerHTML = "";
     for (let r = 1; r <= 6; r++) {
@@ -282,7 +346,7 @@ class CheckersApp {
 
       card.innerHTML = `
         <div class="room-header">
-          <span class="room-title">${t("room")} #${r}</span>
+          <span class="room-title">${t("room")} ${r}</span>
           <span class="room-badge ${statusBadgeClass}">${statusText}</span>
         </div>
         <div class="room-players">
@@ -296,7 +360,7 @@ class CheckersApp {
           </div>
         </div>
         <div class="room-footer">
-          <span class="spectator-count">👁️ ${room.spectators || 0} ${t("spectatorsCount")}</span>
+          <span class="spectator-count">${t("spectatorLabel")} ${room.spectators || 0} ${t("spectatorsCount")}</span>
           <div class="room-actions">
             ${room.status !== "playing"
               ? `<button class="btn-action join-room-btn" data-room="${r}">${t("joinPlayBtn")}</button>`
@@ -309,7 +373,6 @@ class CheckersApp {
       this.dom.roomsGrid.appendChild(card);
     }
 
-    // Attach button handlers
     this.dom.roomsGrid.querySelectorAll(".join-room-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         const roomId = parseInt(btn.getAttribute("data-room"), 10);
@@ -330,9 +393,11 @@ class CheckersApp {
     this.mode = "bot";
     this.myColor = WHITE;
     this.role = "player1";
-    this.dom.matchInfoTitle.textContent = `VS BOT [${t(`diff${this.botDifficulty.charAt(0).toUpperCase() + this.botDifficulty.slice(1)}`)}]`;
-    this.dom.whitePlayerName.textContent = this.network.getNickname();
-    this.dom.blackPlayerName.textContent = `BOT (${t(`diff${this.botDifficulty.charAt(0).toUpperCase() + this.botDifficulty.slice(1)}`)})`;
+    this.updateMatchTitle();
+
+    const playerName = this.network.getNickname() || t("defaultPlayerName");
+    this.dom.whitePlayerName.textContent = playerName;
+    this.dom.blackPlayerName.textContent = `${t("botName")} (${t(`diff${this.botDifficulty.charAt(0).toUpperCase() + this.botDifficulty.slice(1)}`)})`;
 
     this.showGameView();
     this.resetGameRound();
@@ -352,16 +417,27 @@ class CheckersApp {
       this.myColor = null;
     }
 
-    this.dom.matchInfoTitle.textContent = `${t("room")} #${roomId} ${this.role === "spectator" ? `• ${t("spectatingBadge")}` : ""}`;
+    this.updateMatchTitle(roomId);
     this.updateOnlinePlayerNames(res.roomState);
 
     this.showGameView();
     this.resetGameRound();
 
-    // If joined as player 1 and alone, show waiting status
     if (this.role === "player1" && !res.roomState.p2) {
       this.dom.mandatoryNotice.textContent = t("waitingOpponentJoin");
       this.dom.mandatoryNotice.classList.remove("view-hidden");
+    }
+  }
+
+  updateMatchTitle(roomId) {
+    const ruleLabel = this.ruleVariant === RULE_THAI ? t("ruleThaiShort") : t("ruleIntShort");
+    if (this.mode === "bot") {
+      const diffLabel = t(`diff${this.botDifficulty.charAt(0).toUpperCase() + this.botDifficulty.slice(1)}`);
+      this.dom.matchInfoTitle.textContent = `${t("matchVsBot")} [${diffLabel}] • ${ruleLabel}`;
+    } else {
+      const id = roomId || this.network.currentRoomId || 1;
+      const spectateText = this.role === "spectator" ? ` • ${t("spectatingBadge")}` : "";
+      this.dom.matchInfoTitle.textContent = `${t("room")} ${id}${spectateText} • ${ruleLabel}`;
     }
   }
 
@@ -377,7 +453,6 @@ class CheckersApp {
 
     if (action === "join" && meta.role === "player2") {
       this.dom.mandatoryNotice.classList.add("view-hidden");
-      // If we are Host (Player 1), sync our initial board to Player 2
       if (this.role === "player1") {
         this.network.sendSyncState(this.board, this.turn, this.timeRemaining);
       }
@@ -387,12 +462,14 @@ class CheckersApp {
       this.timeRemaining = meta.timeRemaining || 30;
       this.renderBoard();
       this.updateTurnUI();
+      this.updatePieceCounts();
     }
   }
 
   showGameView() {
     this.dom.lobbyView.classList.add("view-hidden");
     this.dom.gameView.classList.remove("view-hidden");
+    this.renderSidebarRules();
   }
 
   exitToLobby() {
@@ -406,7 +483,7 @@ class CheckersApp {
   }
 
   resetGameRound() {
-    this.board = createInitialBoard();
+    this.board = createInitialBoard(this.ruleVariant);
     this.turn = WHITE;
     this.selectedSquare = null;
     this.legalMovesForSelected = [];
@@ -419,6 +496,7 @@ class CheckersApp {
 
     this.renderBoard();
     this.updateTurnUI();
+    this.updatePieceCounts();
     this.startTurnTimer();
   }
 
@@ -445,7 +523,6 @@ class CheckersApp {
       const c = parseInt(sq.dataset.col, 10);
       const piece = this.board[r][c];
 
-      // Reset markers
       sq.classList.remove("selected");
       sq.innerHTML = "";
 
@@ -462,7 +539,6 @@ class CheckersApp {
       }
     }
 
-    // Highlight selected square & legal destinations
     if (this.selectedSquare) {
       const idx = this.selectedSquare.r * BOARD_SIZE + this.selectedSquare.c;
       if (squares[idx]) {
@@ -480,8 +556,7 @@ class CheckersApp {
       });
     }
 
-    // Check mandatory notice
-    const allLegal = getLegalMoves(this.board, this.turn);
+    const allLegal = getLegalMoves(this.board, this.turn, this.ruleVariant);
     if (allLegal.isJump && !this.isGameOver) {
       this.dom.mandatoryNotice.textContent = t("mandatoryJumpNotice");
       this.dom.mandatoryNotice.classList.remove("view-hidden");
@@ -493,11 +568,8 @@ class CheckersApp {
   handleSquareClick(r, c) {
     if (this.isAnimating || this.isGameOver) return;
     if (this.role === "spectator") return;
-
-    // Check turn ownership
     if (this.turn !== this.myColor) return;
 
-    // If locked in multi-jump sequence
     if (this.multiJumpFrom) {
       if (r !== this.multiJumpFrom.r || c !== this.multiJumpFrom.c) {
         const move = this.legalMovesForSelected.find(m => m.to.r === r && m.to.c === c);
@@ -510,9 +582,8 @@ class CheckersApp {
 
     const clickedPiece = this.board[r][c];
 
-    // If clicking own piece
     if (clickedPiece && clickedPiece.color === this.turn) {
-      const legalMoves = getMovesForPiece(this.board, r, c, this.turn);
+      const legalMoves = getMovesForPiece(this.board, r, c, this.turn, this.ruleVariant);
       if (legalMoves.length > 0) {
         this.selectedSquare = { r, c };
         this.legalMovesForSelected = legalMoves;
@@ -521,13 +592,11 @@ class CheckersApp {
       }
     }
 
-    // If clicking target square
     if (this.selectedSquare) {
       const move = this.legalMovesForSelected.find(m => m.to.r === r && m.to.c === c);
       if (move) {
         this.executeMoveWithAnimation(move);
       } else {
-        // Deselect if clicking non-valid empty square
         if (!this.multiJumpFrom) {
           this.selectedSquare = null;
           this.legalMovesForSelected = [];
@@ -537,7 +606,7 @@ class CheckersApp {
     }
   }
 
-  // --- KINETIC ANIMATIONS & MOVE EXECUTION ---
+  // --- KINETIC ANIMATIONS & EXECUTION ---
   async executeMoveWithAnimation(move, fromRemote = false) {
     this.isAnimating = true;
 
@@ -546,9 +615,9 @@ class CheckersApp {
     const squares = this.dom.boardContainer.children;
     const fromSq = squares[fromIdx];
     const toSq = squares[toIdx];
-    const pieceEl = fromSq.querySelector(".piece");
+    const pieceEl = fromSq ? fromSq.querySelector(".piece") : null;
 
-    // 1. Piece Movement Animation (ตอนเดิน)
+    // 1. Move animation (ตอนเดิน)
     if (pieceEl && fromSq && toSq) {
       const fromRect = fromSq.getBoundingClientRect();
       const toRect = toSq.getBoundingClientRect();
@@ -558,12 +627,11 @@ class CheckersApp {
       pieceEl.classList.add("piece-moving");
       playMove();
 
-      // Smooth translation
       pieceEl.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
       await new Promise(res => setTimeout(res, 280));
     }
 
-    // 2. Destruction Animation (ตอนโดนทำลาย)
+    // 2. Destroy animation (ตอนโดนทำลาย)
     if (move.captured) {
       const capIdx = move.captured.r * BOARD_SIZE + move.captured.c;
       const capSq = squares[capIdx];
@@ -572,7 +640,6 @@ class CheckersApp {
       if (capPieceEl) {
         capPieceEl.classList.add("piece-destroyed");
 
-        // Shockwave ripple
         const shockwave = document.createElement("div");
         shockwave.className = "capture-shockwave";
         capSq.appendChild(shockwave);
@@ -582,11 +649,10 @@ class CheckersApp {
       }
     }
 
-    // Apply move in game rules engine
-    const outcome = applyMove(this.board, move);
+    // Apply move in rules engine
+    const outcome = applyMove(this.board, move, this.ruleVariant);
     this.board = outcome.board;
 
-    // Track captured pieces count
     if (move.captured) {
       if (move.captured.piece.color === WHITE) {
         this.capturedWhite++;
@@ -596,16 +662,14 @@ class CheckersApp {
       this.updateCapturedUI();
     }
 
-    // 3. King Promotion Animation (การแปลงเป็น horse / ฮอส)
+    // 3. King transformation (การเปลี่ยนเป็น horse / ฮอส)
     if (outcome.promoted) {
       playKing();
-      // Render board so piece is at new cell
       this.renderBoard();
-      const newPieceEl = toSq.querySelector(".piece");
+      const newPieceEl = toSq ? toSq.querySelector(".piece") : null;
       if (newPieceEl) {
         newPieceEl.classList.add("piece-promoting");
 
-        // Ripple badge
         const promoRing = document.createElement("div");
         promoRing.className = "promotion-ripple";
         toSq.appendChild(promoRing);
@@ -617,15 +681,15 @@ class CheckersApp {
       }
     }
 
-    // Multi-jump check
+    // Multi-jump continuation
     if (outcome.furtherJumps.length > 0) {
       this.multiJumpFrom = { r: move.to.r, c: move.to.c };
       this.selectedSquare = this.multiJumpFrom;
       this.legalMovesForSelected = outcome.furtherJumps;
       this.renderBoard();
+      this.updatePieceCounts();
       this.isAnimating = false;
 
-      // If Bot has further jump, chain immediately after slight pause
       if (this.mode === "bot" && this.turn === BLACK) {
         setTimeout(() => {
           const nextAIMove = outcome.furtherJumps[0];
@@ -643,41 +707,39 @@ class CheckersApp {
 
     this.renderBoard();
     this.updateTurnUI();
+    this.updatePieceCounts();
     this.isAnimating = false;
 
-    // Broadcast move to network if online and move was local
     if (this.mode === "online" && !fromRemote) {
       this.network.sendMove(move, this.board, this.turn, this.timeRemaining);
     }
 
-    // Reset turn timer
     this.startTurnTimer();
 
-    // Check game over
-    const gameOverStatus = checkGameOver(this.board, this.turn);
+    const gameOverStatus = checkGameOver(this.board, this.turn, this.ruleVariant);
     if (gameOverStatus.isOver) {
       this.endGame(gameOverStatus.winner, gameOverStatus.reason);
       return;
     }
 
-    // If vs BOT and it is now BOT's turn
     if (this.mode === "bot" && this.turn === BLACK && !this.isGameOver) {
       this.triggerBotTurn();
     }
   }
 
   triggerBotTurn() {
-    const delay = Math.random() * 250 + 400; // Human-like reaction time
+    const delay = Math.random() * 250 + 400;
     setTimeout(() => {
       if (this.aiWorker) {
         this.aiWorker.postMessage({
           board: this.board,
           botColor: BLACK,
           difficulty: this.botDifficulty,
+          ruleVariant: this.ruleVariant,
           requestId: Date.now()
         });
       } else {
-        const bestMove = getAIMove(this.board, BLACK, this.botDifficulty);
+        const bestMove = getAIMove(this.board, BLACK, this.botDifficulty, this.ruleVariant);
         if (bestMove && !this.isGameOver) {
           this.executeMoveWithAnimation(bestMove);
         }
@@ -685,22 +747,29 @@ class CheckersApp {
     }, delay);
   }
 
-  // --- TURN & TIMER ---
+  // --- TURN, PIECES & TIMER ---
   updateTurnUI() {
     const isWhite = this.turn === WHITE;
-    this.dom.turnBadge.textContent = isWhite ? t("turnWhite") : t("turnBlack");
-
-    const whiteCard = document.getElementById("white-player-info");
-    const blackCard = document.getElementById("black-player-info");
-    if (whiteCard && blackCard) {
-      if (isWhite) {
-        whiteCard.classList.add("active-turn-ring");
-        blackCard.classList.remove("active-turn-ring");
-      } else {
-        whiteCard.classList.remove("active-turn-ring");
-        blackCard.classList.add("active-turn-ring");
-      }
+    if (this.role === "spectator") {
+      this.dom.turnBadge.textContent = isWhite ? t("turnWhite") : t("turnBlack");
+    } else {
+      const isMyTurn = this.turn === this.myColor;
+      this.dom.turnBadge.textContent = isMyTurn ? t("turnYour") : t("turnOpponent");
     }
+
+    if (isWhite) {
+      this.dom.whitePlayerBox.classList.add("active-turn-ring");
+      this.dom.blackPlayerBox.classList.remove("active-turn-ring");
+    } else {
+      this.dom.whitePlayerBox.classList.remove("active-turn-ring");
+      this.dom.blackPlayerBox.classList.add("active-turn-ring");
+    }
+  }
+
+  updatePieceCounts() {
+    const counts = countPieces(this.board);
+    this.dom.whitePiecesCount.textContent = counts.white.total;
+    this.dom.blackPiecesCount.textContent = counts.black.total;
   }
 
   updateCapturedUI() {
@@ -797,7 +866,6 @@ class CheckersApp {
   }
 }
 
-// Bootstrap application on DOM ready
 window.addEventListener("DOMContentLoaded", () => {
   window.app = new CheckersApp();
 });

@@ -1,15 +1,14 @@
-// ai.js - Checkers AI Bot with 3 Difficulty Levels
+// ai.js - Checkers AI Bot supporting both Thai and International rules
 import {
   BOARD_SIZE,
   WHITE,
   BLACK,
-  cloneBoard,
+  RULE_THAI,
   getLegalMoves,
   applyMove,
   checkGameOver
 } from "./rules.js";
 
-// Piece-square table for positional awareness on 8x8 checkers board
 const POSITIONAL_WEIGHTS = [
   [0, 5, 0, 5, 0, 5, 0, 5],
   [4, 0, 3, 0, 3, 0, 3, 0],
@@ -21,15 +20,14 @@ const POSITIONAL_WEIGHTS = [
   [5, 0, 5, 0, 5, 0, 5, 0]
 ];
 
-/**
- * Heuristic static evaluation function from the perspective of botColor.
- */
-function evaluateBoard(board, botColor) {
+function evaluateBoard(board, botColor, ruleVariant) {
   let score = 0;
-  const oppColor = botColor === WHITE ? BLACK : WHITE;
-
   let botPieces = 0;
   let oppPieces = 0;
+
+  // Thai kings (flying kings) have significantly higher strategic weight
+  const kingBaseValue = ruleVariant === RULE_THAI ? 380 : 260;
+  const manBaseValue = 100;
 
   for (let r = 0; r < BOARD_SIZE; r++) {
     for (let c = 0; c < BOARD_SIZE; c++) {
@@ -37,23 +35,22 @@ function evaluateBoard(board, botColor) {
       if (!piece) continue;
 
       const isBot = piece.color === botColor;
-      const baseValue = piece.isKing ? 260 : 100;
+      const baseValue = piece.isKing ? kingBaseValue : manBaseValue;
       let posBonus = POSITIONAL_WEIGHTS[r][c];
 
-      // Advancement bonus for men
       if (!piece.isKing) {
         if (piece.color === WHITE) {
-          posBonus += (7 - r) * 6; // Closer to row 0
+          posBonus += (7 - r) * 7;
         } else {
-          posBonus += r * 6;       // Closer to row 7
+          posBonus += r * 7;
         }
 
-        // Back rank protection bonus (protect against opposing kings)
-        if (piece.color === WHITE && r === 7) posBonus += 20;
-        if (piece.color === BLACK && r === 0) posBonus += 20;
+        // Back rank protection
+        if (piece.color === WHITE && r === 7) posBonus += 25;
+        if (piece.color === BLACK && r === 0) posBonus += 25;
       } else {
-        // King center mobility
-        posBonus += 15;
+        // King mobility bonus
+        posBonus += ruleVariant === RULE_THAI ? 25 : 15;
       }
 
       if (isBot) {
@@ -66,18 +63,14 @@ function evaluateBoard(board, botColor) {
     }
   }
 
-  // Bonus if opponent is close to wiped out
   if (oppPieces === 0) score += 10000;
   if (botPieces === 0) score -= 10000;
 
   return score;
 }
 
-/**
- * Minimax with Alpha-Beta pruning
- */
-function minimax(board, depth, alpha, beta, isMaximizing, botColor, currentTurn) {
-  const gameOver = checkGameOver(board, currentTurn);
+function minimax(board, depth, alpha, beta, isMaximizing, botColor, currentTurn, ruleVariant) {
+  const gameOver = checkGameOver(board, currentTurn, ruleVariant);
   if (gameOver.isOver) {
     if (gameOver.winner === botColor) return 9999 + depth;
     if (gameOver.winner !== null) return -9999 - depth;
@@ -85,10 +78,10 @@ function minimax(board, depth, alpha, beta, isMaximizing, botColor, currentTurn)
   }
 
   if (depth === 0) {
-    return evaluateBoard(board, botColor);
+    return evaluateBoard(board, botColor, ruleVariant);
   }
 
-  const legal = getLegalMoves(board, currentTurn);
+  const legal = getLegalMoves(board, currentTurn, ruleVariant);
   if (legal.moves.length === 0) {
     return isMaximizing ? -9999 : 9999;
   }
@@ -98,8 +91,7 @@ function minimax(board, depth, alpha, beta, isMaximizing, botColor, currentTurn)
   if (isMaximizing) {
     let maxEval = -Infinity;
     for (const move of legal.moves) {
-      const outcome = applyMove(board, move);
-      // Handle multi-jump continuation
+      const outcome = applyMove(board, move, ruleVariant);
       const turnAfterMove = outcome.furtherJumps.length > 0 ? currentTurn : nextTurn;
       const keepMaximizing = outcome.furtherJumps.length > 0;
 
@@ -110,18 +102,19 @@ function minimax(board, depth, alpha, beta, isMaximizing, botColor, currentTurn)
         beta,
         keepMaximizing,
         botColor,
-        turnAfterMove
+        turnAfterMove,
+        ruleVariant
       );
 
       maxEval = Math.max(maxEval, evaluation);
       alpha = Math.max(alpha, evaluation);
-      if (beta <= alpha) break; // Beta cutoff
+      if (beta <= alpha) break;
     }
     return maxEval;
   } else {
     let minEval = Infinity;
     for (const move of legal.moves) {
-      const outcome = applyMove(board, move);
+      const outcome = applyMove(board, move, ruleVariant);
       const turnAfterMove = outcome.furtherJumps.length > 0 ? currentTurn : nextTurn;
       const keepMinimizing = outcome.furtherJumps.length > 0;
 
@@ -132,35 +125,28 @@ function minimax(board, depth, alpha, beta, isMaximizing, botColor, currentTurn)
         beta,
         !keepMinimizing,
         botColor,
-        turnAfterMove
+        turnAfterMove,
+        ruleVariant
       );
 
       minEval = Math.min(minEval, evaluation);
       beta = Math.min(beta, evaluation);
-      if (beta <= alpha) break; // Alpha cutoff
+      if (beta <= alpha) break;
     }
     return minEval;
   }
 }
 
-/**
- * Main AI function: selects best move given board, botColor, and difficulty.
- * @param {Array} board
- * @param {string} botColor ("white" | "black")
- * @param {string} difficulty ("easy" | "medium" | "hard")
- */
-export function getAIMove(board, botColor, difficulty = "medium") {
-  const legal = getLegalMoves(board, botColor);
+export function getAIMove(board, botColor, difficulty = "medium", ruleVariant = RULE_THAI) {
+  const legal = getLegalMoves(board, botColor, ruleVariant);
   if (legal.moves.length === 0) return null;
 
-  // Single choice: play it immediately
   if (legal.moves.length === 1) {
     return legal.moves[0];
   }
 
-  // --- 1. EASY ---
+  // 1. EASY
   if (difficulty === "easy") {
-    // 70% random, 30% capture preference, sometimes blunders
     const captures = legal.moves.filter(m => m.captured !== null);
     if (captures.length > 0 && Math.random() < 0.6) {
       return captures[Math.floor(Math.random() * captures.length)];
@@ -168,14 +154,14 @@ export function getAIMove(board, botColor, difficulty = "medium") {
     return legal.moves[Math.floor(Math.random() * legal.moves.length)];
   }
 
-  // --- 2. MEDIUM ---
+  // 2. MEDIUM
   if (difficulty === "medium") {
     const depth = 3;
     let bestMoves = [];
     let bestScore = -Infinity;
 
     for (const move of legal.moves) {
-      const outcome = applyMove(board, move);
+      const outcome = applyMove(board, move, ruleVariant);
       const nextTurn = outcome.furtherJumps.length > 0
         ? botColor
         : (botColor === WHITE ? BLACK : WHITE);
@@ -187,7 +173,8 @@ export function getAIMove(board, botColor, difficulty = "medium") {
         Infinity,
         outcome.furtherJumps.length > 0,
         botColor,
-        nextTurn
+        nextTurn,
+        ruleVariant
       );
 
       if (score > bestScore) {
@@ -201,15 +188,13 @@ export function getAIMove(board, botColor, difficulty = "medium") {
     return bestMoves[Math.floor(Math.random() * bestMoves.length)];
   }
 
-  // --- 3. HARD ---
-  // Depth 5 with alpha-beta search and positional evaluation
+  // 3. HARD
   const searchDepth = 5;
   let bestMoves = [];
   let bestScore = -Infinity;
   let alpha = -Infinity;
   const beta = Infinity;
 
-  // Prioritize captures first for move ordering efficiency
   const sortedMoves = [...legal.moves].sort((a, b) => {
     const aCap = a.captured ? 10 : 0;
     const bCap = b.captured ? 10 : 0;
@@ -217,7 +202,7 @@ export function getAIMove(board, botColor, difficulty = "medium") {
   });
 
   for (const move of sortedMoves) {
-    const outcome = applyMove(board, move);
+    const outcome = applyMove(board, move, ruleVariant);
     const nextTurn = outcome.furtherJumps.length > 0
       ? botColor
       : (botColor === WHITE ? BLACK : WHITE);
@@ -229,7 +214,8 @@ export function getAIMove(board, botColor, difficulty = "medium") {
       beta,
       outcome.furtherJumps.length > 0,
       botColor,
-      nextTurn
+      nextTurn,
+      ruleVariant
     );
 
     if (score > bestScore) {

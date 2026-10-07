@@ -1,169 +1,197 @@
-// i18n.js - Bilingual support (Thai / English)
+// i18n.js - 100% Pure Bilingual Support (Thai / English)
 
 export const translations = {
   th: {
-    // App Header
+    // Header
     appTitle: "MINIMAL CHECKERS",
-    appSubtitle: "หมากฮอสสากลมินิมอล ขาว-ดำ",
+    appSubtitle: "หมากฮอสขาว-ดำ มินิมอล",
     soundOn: "เสียง: เปิด",
     soundOff: "เสียง: ปิด",
     langTh: "ไทย",
     langEn: "EN",
-    
+
+    // Rule Selection
+    rulesSelectorLabel: "เลือกกติกาการเล่น:",
+    ruleThai: "กติกาไทย (8 ตัว • ฮอสบิน)",
+    ruleInternational: "กติกาสากล (12 ตัว • ฮอส 1 ก้าว)",
+    ruleThaiShort: "กติกาไทย (ฮอสบิน)",
+    ruleIntShort: "กติกาสากล (12 ตัว)",
+    currentRuleTitle: "กติกาปัจจุบัน:",
+    rulesHeader: "สรุปกติกาการเล่น",
+
     // Lobby
     enterNamePrompt: "ตั้งชื่อผู้เล่นของคุณ",
     namePlaceholder: "พิมพ์ชื่อของคุณที่นี่...",
     saveName: "บันทึกชื่อ",
     anonymous: "ผู้เล่นนิรนาม",
-    singleplayerSection: "เล่นกับ BOT (AI)",
+    defaultPlayerName: "ผู้เล่น",
+    singleplayerSection: "เล่นกับบอท (BOT)",
     difficultyLabel: "ระดับความยาก:",
-    diffEasy: "ง่าย (Easy)",
-    diffMedium: "ปานกลาง (Medium)",
-    diffHard: "ยาก (Hard)",
-    playBotBtn: "เริ่มเล่นกับ BOT",
-    
+    diffEasy: "ง่าย",
+    diffMedium: "ปานกลาง",
+    diffHard: "ยาก",
+    playBotBtn: "เริ่มเล่นกับบอท",
+
     multiplayerSection: "ห้องเล่นออนไลน์สด (6 ห้อง)",
     refreshRooms: "รีเฟรชสถานะ",
     room: "ห้อง",
     roomEmpty: "ห้องว่าง",
     roomWaiting: "รอผู้เล่นคนที่ 2",
     roomPlaying: "กำลังแข่งขัน",
-    spectatorsCount: "ผู้ชม",
+    spectatorsCount: "คน",
+    spectatorLabel: "ผู้ชม:",
     joinPlayBtn: "เข้าร่วมเล่น",
-    spectateBtn: "เข้าชมการแข่งขัน",
+    spectateBtn: "เข้าชมสด",
     noSlots: "ห้องเต็มแล้ว",
-    
-    // In-Game
-    backToLobby: "← กลับสู่ล็อบบี้",
-    restartBtn: "เริ่มใหม่",
-    resignBtn: "ยอมแพ้",
-    turnWhite: "ตาเดิน: สีขาว (White)",
-    turnBlack: "ตาเดิน: สีดำ (Black)",
+
+    // Game Arena Sidebar
+    matchVsBot: "แข่งกับบอท",
+    spectatingBadge: "โหมดผู้ชมสด",
+    playersHeader: "ผู้เล่นและการแข่งขัน",
+    playerWhite: "ฝ่ายสีขาว",
+    playerBlack: "ฝ่ายสีดำ",
+    botName: "บอท",
+    turnWhite: "ตาเดิน: สีขาว",
+    turnBlack: "ตาเดิน: สีดำ",
     turnYour: "ตาของคุณ!",
-    turnOpponent: "ตาศัตรู...",
-    playerWhite: "ผู้เล่นสีขาว",
-    playerBlack: "ผู้เล่นสีดำ",
-    botName: "BOT",
-    spectatingBadge: "โหมดผู้ชม (Live)",
-    timeRemaining: "เวลาที่เหลือ:",
-    seconds: "วิ",
-    mandatoryJumpNotice: "มีจังหวะกิน! ต้องกินตามกติกาสากล",
+    turnOpponent: "ตาของคู่ต่อสู้...",
     
-    // Promotion & Captures
-    kingPromotionMsg: "กลายเป็นฮอส! (Crowned King)",
-    capturedWhite: "กินหมากขาวได้:",
-    capturedBlack: "กินหมากดำได้:",
-    
-    // Game Over Dialog
+    timerCardTitle: "เวลานับถอยหลังต่อตา",
+    timerLabel: "เวลาที่เหลือ:",
+    seconds: "วินาที",
+    mandatoryJumpNotice: "มีจังหวะกิน! ต้องกินตามกติกา",
+
+    capturedHeader: "หมากที่ถูกกิน",
+    capturedWhite: "หมากขาวถูกกิน:",
+    capturedBlack: "หมากดำถูกกิน:",
+
+    controlsHeader: "ปุ่มควบคุม",
+    resignBtn: "ยอมแพ้",
+    restartBtn: "เริ่มเกมใหม่",
+    backToLobby: "← ออกสู่ล็อบบี้",
+
+    // Rules Details
+    ruleThaiDesc1: "• กระดาน 8x8 ฝ่ายละ 8 ตัว (สีขาวเดินก่อน)",
+    ruleThaiDesc2: "• เบี้ยเดินและกินทแยงหน้า ก้าวละ 1 ช่อง",
+    ruleThaiDesc3: "• ฮอสบิน: เดินและกินได้ยาวตลอดแนวทแยงที่ไม่มีตัวขวาง และลงช่องว่างใดก็ได้หลังตัวที่กิน",
+    ruleThaiDesc4: "• มีจังหวะกินต้องกิน (Mandatory Jump) และกินต่อเนื่องได้",
+    ruleThaiDesc5: "• มีเวลานับถอยหลังต่อตา หากหมดเวลาปรับแพ้ทันที",
+
+    ruleIntDesc1: "• กระดาน 8x8 ฝ่ายละ 12 ตัว (สีขาวเดินก่อน)",
+    ruleIntDesc2: "• เบี้ยเดินและกินทแยงหน้า ก้าวละ 1 ช่อง",
+    ruleIntDesc3: "• ฮอส: เดินและกินทแยงได้ทั้งหน้าและหลัง ก้าวละ 1 ช่อง",
+    ruleIntDesc4: "• มีจังหวะกินต้องกิน (Mandatory Jump) และกินต่อเนื่องได้",
+    ruleIntDesc5: "• มีเวลานับถอยหลังต่อตา หากหมดเวลาปรับแพ้ทันที",
+
+    // Game Over & Dialogs
     gameOverTitle: "จบเกม!",
     winnerWhite: "ฝ่ายสีขาวชนะ!",
     winnerBlack: "ฝ่ายสีดำชนะ!",
     drawGame: "เสมอ!",
-    reasonElimination: "หมากของฝ่ายตรงข้ามหมดกระดาน",
+    reasonElimination: "หมากฝ่ายตรงข้ามหมดกระดาน",
     reasonBlocked: "ฝ่ายตรงข้ามไม่มีตาเดินเหลือ",
-    reasonTimeout: "หมดเวลาในตาเดิน (Timeout)",
+    reasonTimeout: "หมดเวลาในตาเดิน",
     reasonResign: "ฝ่ายตรงข้ามขอยอมแพ้",
+    opponentDisconnected: "ฝ่ายตรงข้ามออกจากห้อง",
     playAgainBtn: "เล่นใหม่อีกครั้ง",
     lobbyReturnBtn: "กลับหน้าล็อบบี้",
-    
-    // Connection / Room Status
-    connectingNetwork: "กำลังเชื่อมต่อระบบออนไลน์...",
-    connectedNetwork: "เชื่อมต่อออนไลน์สำเร็จ",
-    disconnectedNetwork: "ขาดการเชื่อมต่อ กำลังต่อใหม่...",
-    waitingOpponentJoin: "กำลังรอผู้เล่นคนที่ 2 เข้าร่วมห้อง...",
-    opponentConnected: "ผู้เล่นคนที่ 2 เข้าร่วมแล้ว!",
-    opponentDisconnected: "ฝ่ายตรงข้ามออกจากห้อง",
-    roomClosed: "ห้องถูกปิดแล้ว",
-    
-    // Rules
-    rulesTitle: "กติกาสากลโดยย่อ",
-    rule1: "กระดาน 8x8 ฝ่ายละ 12 ตัว (สีขาวเดินก่อน)",
-    rule2: "เบี้ยเดินทแยงหน้า 1 ช่อง, กินทแยงหน้าข้ามตัวคู่ต่อสู้",
-    rule3: "มีจังหวะกินต้องกิน และสามารถกินต่อเนื่องได้ (Multi-jump)",
-    rule4: "เมื่อเบี้ยถึงแถวหลังสุดจะกลายเป็น 'ฮอส (King)' สามารถเดินและกินทแยงได้ทั้งหน้าและหลัง",
-    rule5: "มีเวลานับถอยหลังต่อตา หากหมดเวลาจะถูกปรับแพ้ทันที"
+    waitingOpponentJoin: "กำลังรอผู้เล่นคนที่ 2 เข้าร่วมห้อง..."
   },
   en: {
-    // App Header
+    // Header
     appTitle: "MINIMAL CHECKERS",
-    appSubtitle: "Monochrome Standard Draughts",
+    appSubtitle: "Monochrome Checkers",
     soundOn: "Sound: ON",
     soundOff: "Sound: OFF",
     langTh: "ไทย",
     langEn: "EN",
-    
+
+    // Rule Selection
+    rulesSelectorLabel: "Select Rules Mode:",
+    ruleThai: "Thai Rules (8 pieces • Flying King)",
+    ruleInternational: "International (12 pieces • 1-step King)",
+    ruleThaiShort: "Thai Rules (Flying King)",
+    ruleIntShort: "International (12 pieces)",
+    currentRuleTitle: "Current Rules:",
+    rulesHeader: "Rules Overview",
+
     // Lobby
     enterNamePrompt: "Enter your nickname",
     namePlaceholder: "Type your name here...",
     saveName: "Save Name",
     anonymous: "Anonymous",
-    singleplayerSection: "PLAY VS BOT (AI)",
+    defaultPlayerName: "Player",
+    singleplayerSection: "PLAY VS BOT",
     difficultyLabel: "Difficulty:",
     diffEasy: "Easy",
     diffMedium: "Medium",
     diffHard: "Hard",
     playBotBtn: "Start Match vs BOT",
-    
+
     multiplayerSection: "ONLINE LIVE ROOMS (6 ROOMS)",
     refreshRooms: "Refresh Rooms",
     room: "Room",
     roomEmpty: "Empty",
     roomWaiting: "Waiting for Player 2",
     roomPlaying: "In Progress",
-    spectatorsCount: "Spectators",
+    spectatorsCount: "spectators",
+    spectatorLabel: "Spectators:",
     joinPlayBtn: "Join Match",
     spectateBtn: "Spectate",
     noSlots: "Room Full",
-    
-    // In-Game
-    backToLobby: "← Exit to Lobby",
-    restartBtn: "Restart",
-    resignBtn: "Resign",
+
+    // Game Arena Sidebar
+    matchVsBot: "Match vs BOT",
+    spectatingBadge: "Spectator Mode (Live)",
+    playersHeader: "Players & Match",
+    playerWhite: "White Player",
+    playerBlack: "Black Player",
+    botName: "BOT",
     turnWhite: "Turn: White",
     turnBlack: "Turn: Black",
     turnYour: "Your turn!",
     turnOpponent: "Opponent's turn...",
-    playerWhite: "White Player",
-    playerBlack: "Black Player",
-    botName: "BOT",
-    spectatingBadge: "Spectator Mode (Live)",
-    timeRemaining: "Time left:",
-    seconds: "s",
-    mandatoryJumpNotice: "Capture available! Mandatory jump rule in effect.",
-    
-    // Promotion & Captures
-    kingPromotionMsg: "Crowned King! (Horse)",
+
+    timerCardTitle: "Turn Countdown",
+    timerLabel: "Time left:",
+    seconds: "sec",
+    mandatoryJumpNotice: "Capture available! Mandatory jump in effect",
+
+    capturedHeader: "Captured Pieces",
     capturedWhite: "White captured:",
     capturedBlack: "Black captured:",
-    
-    // Game Over Dialog
+
+    controlsHeader: "Game Controls",
+    resignBtn: "Resign",
+    restartBtn: "Restart",
+    backToLobby: "← Exit to Lobby",
+
+    // Rules Details
+    ruleThaiDesc1: "• 8x8 board, 8 pieces each (White moves first)",
+    ruleThaiDesc2: "• Men move & capture forward 1 diagonal step",
+    ruleThaiDesc3: "• Flying King: moves & captures any distance along diagonals, landing anywhere behind jumped piece",
+    ruleThaiDesc4: "• Captures are mandatory with continuous multi-jumps",
+    ruleThaiDesc5: "• Turn countdown enforced; expires to forfeit loss",
+
+    ruleIntDesc1: "• 8x8 board, 12 pieces each (White moves first)",
+    ruleIntDesc2: "• Men move & capture forward 1 diagonal step",
+    ruleIntDesc3: "• King: moves & captures 1 step forward and backward",
+    ruleIntDesc4: "• Captures are mandatory with continuous multi-jumps",
+    ruleIntDesc5: "• Turn countdown enforced; expires to forfeit loss",
+
+    // Game Over & Dialogs
     gameOverTitle: "GAME OVER",
     winnerWhite: "White Wins!",
     winnerBlack: "Black Wins!",
     drawGame: "Draw Game!",
     reasonElimination: "All opponent pieces eliminated",
     reasonBlocked: "Opponent has no legal moves",
-    reasonTimeout: "Turn timer expired (Timeout)",
+    reasonTimeout: "Turn timer expired",
     reasonResign: "Opponent resigned",
+    opponentDisconnected: "Opponent left the room",
     playAgainBtn: "Play Again",
     lobbyReturnBtn: "Back to Lobby",
-    
-    // Connection / Room Status
-    connectingNetwork: "Connecting to realtime network...",
-    connectedNetwork: "Connected to network",
-    disconnectedNetwork: "Disconnected. Reconnecting...",
-    waitingOpponentJoin: "Waiting for Player 2 to join...",
-    opponentConnected: "Player 2 joined the match!",
-    opponentDisconnected: "Opponent left the room",
-    roomClosed: "Room has been closed",
-    
-    // Rules
-    rulesTitle: "Standard Checkers Rules",
-    rule1: "8x8 board, 12 pieces per player (White moves first)",
-    rule2: "Men move diagonally forward 1 step, jump diagonally forward over opponents",
-    rule3: "Captures are mandatory; continuous multi-jumps must be completed",
-    rule4: "Reaching the opposite back rank promotes the piece to a King (Horse), moving & jumping both forward and backward",
-    rule5: "Turn countdown timer enforced; reaching 0 results in timeout loss"
+    waitingOpponentJoin: "Waiting for Player 2 to join..."
   }
 };
 
@@ -207,7 +235,6 @@ export function updateDOMTranslations() {
     }
   });
 
-  // Update language toggle buttons active state
   const btnTh = document.getElementById("lang-th-btn");
   const btnEn = document.getElementById("lang-en-btn");
   if (btnTh && btnEn) {

@@ -1,10 +1,10 @@
-// ai-worker.js - Background Web Worker for Bot computations
+// ai-worker.js - Web Worker for Checkers AI
 import { getAIMove } from "./ai.js";
 
 self.onmessage = function (e) {
-  const { board, botColor, difficulty, requestId } = e.data;
+  const { board, botColor, difficulty, ruleVariant, requestId } = e.data;
   try {
-    const bestMove = getAIMove(board, botColor, difficulty);
+    const bestMove = getAIMove(board, botColor, difficulty, ruleVariant);
     self.postMessage({ requestId, bestMove, error: null });
   } catch (err) {
     self.postMessage({ requestId, bestMove: null, error: err.message });
