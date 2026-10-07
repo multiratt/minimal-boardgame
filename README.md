@@ -7,7 +7,7 @@
 3. **หมากรุกไทย (Makruk):** 16 ตัว • ขุน, เม็ด, โคน, ม้า, เรือ, เบี้ยหงายแถว 6 ตามกติกาไทยแท้
 4. **หมากรุกสากล (Western Chess):** 16 ตัว • King, Queen, Rook, Bishop, Knight, Pawn ตามมาตรฐานสากล
 
-🔗 **เข้าเล่นทันทีผ่าน GitHub Pages:** [https://multiratt.github.io/minimal-checkers/](https://multiratt.github.io/minimal-checkers/)
+🔗 **เข้าเล่นทันทีผ่าน GitHub Pages:** [https://multiratt.github.io/minimal-boardgame/](https://multiratt.github.io/minimal-boardgame/)
 
 ---
 
@@ -41,8 +41,8 @@
 ## 💻 การติดตั้งและทดสอบในเครื่อง (Local Run)
 
 ```bash
-git clone https://github.com/multiratt/minimal-checkers.git
-cd minimal-checkers
+git clone https://github.com/multiratt/minimal-boardgame.git
+cd minimal-boardgame
 python3 -m http.server 8080
 ```
 เปิดเบราว์เซอร์ไปที่ `http://localhost:8080` เพื่อเข้าเล่นได้ทันที

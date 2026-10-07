@@ -1,5 +1,5 @@
 {
-  "name": "minimal-checkers",
+  "name": "minimal-boardgame",
   "version": "1.0.0",
   "description": "Minimal monochrome standard checkers and chess web app with smooth animations, AI bot, and 4-room multiplayer",
   "type": "module",
