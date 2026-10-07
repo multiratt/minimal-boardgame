@@ -151,7 +151,15 @@ export const translations = {
     statWhiteShort: "ขาว",
     statBlackShort: "ดำ",
     minuteShort: "นาที",
-    secondShort: "วิ"
+    secondShort: "วิ",
+
+    // Screenshot & Share
+    screenshotBtn: "📸 บันทึกภาพสถิติ",
+    screenshotPreviewTitle: "ภาพสถิติการแข่งขัน",
+    screenshotTip: "แตะค้างที่รูปภาพเพื่อบันทึกลงเครื่อง",
+    downloadBtn: "ดาวน์โหลดรูป",
+    closeBtn: "ปิด",
+    screenshotSuccess: "บันทึกภาพสถิติสำเร็จ!"
   },
   en: {
     // Header
@@ -302,7 +310,15 @@ export const translations = {
     statWhiteShort: "White",
     statBlackShort: "Black",
     minuteShort: "m",
-    secondShort: "s"
+    secondShort: "s",
+
+    // Screenshot & Share
+    screenshotBtn: "📸 Save Match Card",
+    screenshotPreviewTitle: "Match Statistics Card",
+    screenshotTip: "Long press image to save to your photos",
+    downloadBtn: "Download Image",
+    closeBtn: "Close",
+    screenshotSuccess: "Match card saved successfully!"
   }
 };
 

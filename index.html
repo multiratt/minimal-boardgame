@@ -285,8 +285,26 @@
       </div>
 
       <div class="modal-actions">
+        <button id="modal-screenshot-btn" class="btn-action" data-i18n="screenshotBtn">📸 บันทึกภาพสถิติ</button>
         <button id="modal-replay-btn" class="primary-btn" data-i18n="playAgainBtn">เล่นใหม่อีกครั้ง</button>
         <button id="modal-lobby-btn" class="btn-secondary" data-i18n="lobbyReturnBtn">กลับหน้าล็อบบี้</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screenshot Preview Modal -->
+  <div id="screenshot-modal" class="modal-overlay view-hidden">
+    <div class="modal-content screenshot-modal-content">
+      <div class="modal-header">
+        <h3 data-i18n="screenshotPreviewTitle">ภาพสถิติการแข่งขัน</h3>
+        <p data-i18n="screenshotTip">แตะค้างที่รูปภาพเพื่อบันทึกลงเครื่อง</p>
+      </div>
+      <div class="screenshot-img-wrapper">
+        <img id="screenshot-img" alt="Match Stats" />
+      </div>
+      <div class="modal-actions">
+        <a id="screenshot-download-link" class="primary-btn" download="minimal-boardgame-stats.png" data-i18n="downloadBtn">ดาวน์โหลดรูป</a>
+        <button id="screenshot-close-btn" class="btn-secondary" data-i18n="closeBtn">ปิด</button>
       </div>
     </div>
   </div>

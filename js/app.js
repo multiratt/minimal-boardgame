@@ -54,6 +54,7 @@ import {
 } from "./sfx.js";
 
 import { getPieceSVG } from "./pieces-svg.js";
+import { generateMatchStatsCanvas, shareOrSaveMatchCard } from "./screenshot.js";
 
 class BoardGameApp {
   constructor() {
@@ -201,6 +202,13 @@ class BoardGameApp {
       statPromotions: document.getElementById("stat-promotions"),
       statResultDetail: document.getElementById("stat-result-detail"),
 
+      // Screenshot & Share DOM elements
+      modalScreenshotBtn: document.getElementById("modal-screenshot-btn"),
+      screenshotModal: document.getElementById("screenshot-modal"),
+      screenshotImg: document.getElementById("screenshot-img"),
+      screenshotDownloadLink: document.getElementById("screenshot-download-link"),
+      screenshotCloseBtn: document.getElementById("screenshot-close-btn"),
+
       langThBtn: document.getElementById("lang-th-btn"),
       langEnBtn: document.getElementById("lang-en-btn"),
       soundBtn: document.getElementById("sound-btn"),
@@ -285,6 +293,7 @@ class BoardGameApp {
 
     this.dom.modalReplayBtn.addEventListener("click", () => {
       this.dom.gameOverModal.classList.add("view-hidden");
+      if (this.dom.screenshotModal) this.dom.screenshotModal.classList.add("view-hidden");
       if (this.mode === "online") {
         this.network.sendRestart();
       }
@@ -292,8 +301,25 @@ class BoardGameApp {
     });
     this.dom.modalLobbyBtn.addEventListener("click", () => {
       this.dom.gameOverModal.classList.add("view-hidden");
+      if (this.dom.screenshotModal) this.dom.screenshotModal.classList.add("view-hidden");
       this.exitToLobby();
     });
+
+    if (this.dom.modalScreenshotBtn) {
+      this.dom.modalScreenshotBtn.addEventListener("click", () => this.handleScreenshot());
+    }
+    if (this.dom.screenshotCloseBtn) {
+      this.dom.screenshotCloseBtn.addEventListener("click", () => {
+        if (this.dom.screenshotModal) this.dom.screenshotModal.classList.add("view-hidden");
+      });
+    }
+    if (this.dom.screenshotModal) {
+      this.dom.screenshotModal.addEventListener("click", (e) => {
+        if (e.target === this.dom.screenshotModal) {
+          this.dom.screenshotModal.classList.add("view-hidden");
+        }
+      });
+    }
 
     // Multiplayer callbacks
     this.network.onLobbyUpdated = (roomsState) => this.renderLobbyRooms(roomsState);
@@ -1321,8 +1347,61 @@ class BoardGameApp {
 
     this.dom.gameOverModal.classList.remove("view-hidden");
   }
+
+  async handleScreenshot() {
+    try {
+      const statsData = {
+        modeName: this.dom.modalStatMode ? this.dom.modalStatMode.textContent : "Minimal Board Game",
+        winnerTitle: this.dom.modalWinnerTitle ? this.dom.modalWinnerTitle.textContent : t("gameOverTitle"),
+        winnerReason: this.dom.modalWinnerReason ? this.dom.modalWinnerReason.textContent : "",
+        whitePlayer: (this.dom.whitePlayerName ? this.dom.whitePlayerName.textContent : "").trim() || t("defaultPlayerName"),
+        blackPlayer: (this.dom.blackPlayerName ? this.dom.blackPlayerName.textContent : "").trim() || t("botName"),
+        statsHeader: t("matchStatsTitle"),
+        labels: {
+          totalTime: t("statTotalTime"),
+          avgTime: t("statAvgTime"),
+          totalMoves: t("statTotalMoves"),
+          captures: t("statCaptures"),
+          promotions: t("statPromotions"),
+          resultDetail: t("statResultDetail")
+        },
+        values: {
+          totalTime: this.dom.statTotalTime ? this.dom.statTotalTime.textContent : "—",
+          avgTime: this.dom.statAvgTime ? this.dom.statAvgTime.textContent : "—",
+          totalMoves: this.dom.statTotalMoves ? this.dom.statTotalMoves.textContent : "—",
+          captures: this.dom.statCaptures ? this.dom.statCaptures.textContent : "—",
+          promotions: this.dom.statPromotions ? this.dom.statPromotions.textContent : "—",
+          resultDetail: this.dom.statResultDetail ? this.dom.statResultDetail.textContent : "—"
+        }
+      };
+
+      const dataUrl = generateMatchStatsCanvas(statsData);
+
+      // Populate preview modal
+      if (this.dom.screenshotImg) {
+        this.dom.screenshotImg.src = dataUrl;
+      }
+      if (this.dom.screenshotDownloadLink) {
+        this.dom.screenshotDownloadLink.href = dataUrl;
+        const now = new Date();
+        const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
+        this.dom.screenshotDownloadLink.download = `minimal-boardgame-stats-${dateStr}.png`;
+      }
+
+      // Always show preview dialog so mobile users can view/long-press/save
+      if (this.dom.screenshotModal) {
+        this.dom.screenshotModal.classList.remove("view-hidden");
+      }
+
+      // Attempt native Web Share or automatic download
+      await shareOrSaveMatchCard(dataUrl, `minimal-boardgame-stats.png`);
+    } catch (err) {
+      console.error("Screenshot generation failed:", err);
+    }
+  }
 }
 
 window.addEventListener("DOMContentLoaded", () => {
   window.app = new BoardGameApp();
 });
+
