@@ -1,5 +1,5 @@
-// app.js - Main Application Orchestrator for Minimal Checkers
-// Supports Thai Checkers (8 pieces, Flying King) & International Checkers (12 pieces, 1-step King)
+// app.js - Universal Minimal Board Games Controller
+// Supports: Thai Checkers, International Checkers, Thai Chess (Makruk), Western Chess
 
 import {
   BOARD_SIZE,
@@ -7,16 +7,34 @@ import {
   BLACK,
   RULE_THAI,
   RULE_INTERNATIONAL,
-  createInitialBoard,
+  createInitialBoard as createCheckersBoard,
   cloneBoard,
-  getLegalMoves,
-  getMovesForPiece,
-  applyMove,
-  checkGameOver,
-  countPieces
+  getLegalMoves as getLegalCheckersMoves,
+  getMovesForPiece as getCheckersMovesForPiece,
+  applyMove as applyCheckersMove,
+  checkGameOver as checkCheckersGameOver,
+  countPieces as countCheckersPieces
 } from "./rules.js";
 
-import { getAIMove } from "./ai.js";
+import { getAIMove as getAICheckersMove } from "./ai.js";
+
+import {
+  createMakrukBoard,
+  getLegalMakrukMoves,
+  applyMakrukMove,
+  checkMakrukGameOver,
+  getAIMakrukMove,
+  isKingInCheck as isMakrukKingInCheck
+} from "./rules-makruk.js";
+
+import {
+  setChessConstructor,
+  createInitialChess,
+  getLegalChessMoves,
+  applyChessMove,
+  getAIChessMove
+} from "./rules-chess.js";
+
 import { NetworkManager } from "./network.js";
 import {
   t,
@@ -40,26 +58,49 @@ const CROWN_SVG = `
   <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z"/>
 </svg>`;
 
-class CheckersApp {
+// Glyphs for Makruk & Western Chess
+const MAKRUK_SYMBOLS = {
+  k: "ขุน",
+  m: "เม็ด",
+  s: "โคน",
+  n: "ม้า",
+  r: "เรือ",
+  p: "เบี้ย",
+  pm: "หงาย"
+};
+
+const CHESS_SYMBOLS = {
+  k: "♚",
+  q: "♛",
+  r: "♜",
+  b: "♝",
+  n: "♞",
+  p: "♟"
+};
+
+class BoardGameApp {
   constructor() {
     this.network = new NetworkManager();
 
-    // Game state
-    this.ruleVariant = localStorage.getItem("checkers_rule_variant") || RULE_THAI;
-    this.mode = "bot"; // "bot" | "online"
+    // Active mode: "checkers_thai" | "checkers_international" | "chess_makruk" | "chess_western"
+    this.activeMode = localStorage.getItem("board_game_mode") || "checkers_thai";
+    this.activeCategory = this.activeMode.startsWith("chess") ? "chess" : "checkers";
     this.botDifficulty = "medium";
-    this.board = createInitialBoard(this.ruleVariant);
+
+    // Board & turn state
+    this.board = null;
+    this.chessFen = null;
     this.turn = WHITE;
     this.myColor = WHITE;
-    this.role = "player1"; // "player1" | "player2" | "spectator"
+    this.role = "player1";
     this.selectedSquare = null;
     this.legalMovesForSelected = [];
-    this.multiJumpFrom = null;
+    this.multiJumpFrom = null; // for Checkers multi-jumps
     this.isAnimating = false;
     this.isGameOver = false;
 
-    // Timer state
-    this.turnTimeLimit = 30; // seconds
+    // Timer
+    this.turnTimeLimit = 30;
     this.timeRemaining = 30;
     this.timerInterval = null;
 
@@ -67,24 +108,70 @@ class CheckersApp {
     this.capturedWhite = 0;
     this.capturedBlack = 0;
 
-    // AI Worker
+    // AI Worker for Checkers
     this.aiWorker = null;
     this.initWorker();
 
-    // DOM references
+    // Connect Chess constructor if available
+    if (typeof window !== "undefined" && window.Chess) {
+      setChessConstructor(window.Chess);
+    }
+
+    this.cacheDOM();
+    this.initEvents();
+    this.initBoardDOM();
+    this.updateCategoryTabsUI();
+    this.updateModeButtonsUI();
+    this.renderLobbyRooms(this.network.roomsState);
+    updateDOMTranslations();
+    this.updateSoundButtonUI();
+
+    if (this.network.getNickname()) {
+      this.dom.nicknameInput.value = this.network.getNickname();
+    }
+  }
+
+  initWorker() {
+    try {
+      this.aiWorker = new Worker(new URL("./ai-worker.js", import.meta.url), { type: "module" });
+      this.aiWorker.onmessage = (e) => {
+        const { bestMove } = e.data;
+        if (bestMove && !this.isGameOver && this.turn === BLACK && this.modeIsCheckers()) {
+          this.executeMoveWithAnimation(bestMove);
+        }
+      };
+    } catch (e) {
+      console.warn("Web Worker fallback:", e);
+      this.aiWorker = null;
+    }
+  }
+
+  cacheDOM() {
     this.dom = {
       lobbyView: document.getElementById("lobby-view"),
       gameView: document.getElementById("game-view"),
       nicknameInput: document.getElementById("nickname-input"),
       saveNameBtn: document.getElementById("save-name-btn"),
+
+      // Category tabs & rule buttons
+      tabCheckers: document.getElementById("tab-checkers"),
+      tabChess: document.getElementById("tab-chess"),
+      checkersOptions: document.getElementById("checkers-options"),
+      chessOptions: document.getElementById("chess-options"),
       ruleThaiBtn: document.getElementById("rule-thai-btn"),
       ruleIntBtn: document.getElementById("rule-int-btn"),
+      ruleMakrukBtn: document.getElementById("rule-makruk-btn"),
+      ruleWesternBtn: document.getElementById("rule-western-btn"),
+
+      // Bot
       startBotBtn: document.getElementById("start-bot-btn"),
       diffBtns: document.querySelectorAll(".diff-btn"),
+
+      // Rooms
       roomsGrid: document.getElementById("rooms-grid"),
       refreshRoomsBtn: document.getElementById("refresh-rooms-btn"),
-      
-      // Sidebar elements
+
+      // Sidebar
       exitLobbyBtn: document.getElementById("exit-lobby-btn"),
       resignGameBtn: document.getElementById("resign-game-btn"),
       restartGameBtn: document.getElementById("restart-game-btn"),
@@ -110,67 +197,49 @@ class CheckersApp {
       modalWinnerReason: document.getElementById("modal-winner-reason"),
       modalReplayBtn: document.getElementById("modal-replay-btn"),
       modalLobbyBtn: document.getElementById("modal-lobby-btn"),
-      
+
       langThBtn: document.getElementById("lang-th-btn"),
       langEnBtn: document.getElementById("lang-en-btn"),
       soundBtn: document.getElementById("sound-btn"),
       soundIcon: document.getElementById("sound-icon"),
       soundText: document.getElementById("sound-text")
     };
-
-    this.initEvents();
-    this.initBoardDOM();
-    this.updateRuleVariantUI();
-    this.renderLobbyRooms(this.network.roomsState);
-    updateDOMTranslations();
-    this.updateSoundButtonUI();
-
-    if (this.network.getNickname()) {
-      this.dom.nicknameInput.value = this.network.getNickname();
-    }
   }
 
-  initWorker() {
-    try {
-      this.aiWorker = new Worker(new URL("./ai-worker.js", import.meta.url), { type: "module" });
-      this.aiWorker.onmessage = (e) => {
-        const { bestMove } = e.data;
-        if (bestMove && !this.isGameOver && this.turn === BLACK && this.mode === "bot") {
-          this.executeMoveWithAnimation(bestMove);
-        }
-      };
-    } catch (e) {
-      console.warn("Web Worker fallback:", e);
-      this.aiWorker = null;
-    }
+  modeIsCheckers() {
+    return this.activeMode.startsWith("checkers");
   }
 
   initEvents() {
-    // Language Switcher
+    // Language
     this.dom.langThBtn.addEventListener("click", () => {
       setLang("th");
       this.onLanguageChanged();
     });
-
     this.dom.langEnBtn.addEventListener("click", () => {
       setLang("en");
       this.onLanguageChanged();
     });
 
-    // Sound toggle
+    // Sound
     this.dom.soundBtn.addEventListener("click", () => {
       toggleSound();
       this.updateSoundButtonUI();
     });
 
-    // Rule variant toggles in Lobby
-    this.dom.ruleThaiBtn.addEventListener("click", () => {
-      this.setRuleVariant(RULE_THAI);
+    // Category tabs
+    this.dom.tabCheckers.addEventListener("click", () => {
+      this.setCategory("checkers");
+    });
+    this.dom.tabChess.addEventListener("click", () => {
+      this.setCategory("chess");
     });
 
-    this.dom.ruleIntBtn.addEventListener("click", () => {
-      this.setRuleVariant(RULE_INTERNATIONAL);
-    });
+    // Mode buttons
+    this.dom.ruleThaiBtn.addEventListener("click", () => this.setMode("checkers_thai"));
+    this.dom.ruleIntBtn.addEventListener("click", () => this.setMode("checkers_international"));
+    this.dom.ruleMakrukBtn.addEventListener("click", () => this.setMode("chess_makruk"));
+    this.dom.ruleWesternBtn.addEventListener("click", () => this.setMode("chess_western"));
 
     // Nickname save
     this.dom.saveNameBtn.addEventListener("click", () => {
@@ -184,7 +253,7 @@ class CheckersApp {
       }
     });
 
-    // Bot difficulty selection
+    // Bot difficulty
     this.dom.diffBtns.forEach(btn => {
       btn.addEventListener("click", () => {
         this.dom.diffBtns.forEach(b => b.classList.remove("active"));
@@ -203,107 +272,115 @@ class CheckersApp {
       this.renderLobbyRooms(this.network.roomsState);
     });
 
-    // Exit to Lobby
-    this.dom.exitLobbyBtn.addEventListener("click", () => {
-      this.exitToLobby();
-    });
-
-    // Resign
+    // Controls
+    this.dom.exitLobbyBtn.addEventListener("click", () => this.exitToLobby());
     this.dom.resignGameBtn.addEventListener("click", () => {
       if (this.isGameOver || this.role === "spectator") return;
       this.handleResign(this.myColor);
     });
-
-    // Restart game
     this.dom.restartGameBtn.addEventListener("click", () => {
-      if (this.mode === "bot") {
-        this.resetGameRound();
-      } else if (this.mode === "online" && this.role !== "spectator") {
-        this.network.sendRestart();
-        this.resetGameRound();
-      }
+      this.resetGameRound();
     });
 
-    // Game Over Modal buttons
+    // Modal
     this.dom.modalReplayBtn.addEventListener("click", () => {
       this.dom.gameOverModal.classList.add("view-hidden");
-      if (this.mode === "bot") {
-        this.startBotGame();
-      } else {
-        this.network.sendRestart();
-        this.resetGameRound();
-      }
+      this.resetGameRound();
     });
-
     this.dom.modalLobbyBtn.addEventListener("click", () => {
       this.dom.gameOverModal.classList.add("view-hidden");
       this.exitToLobby();
     });
 
-    // Network callbacks
-    this.network.onLobbyUpdated = (roomsState) => {
-      this.renderLobbyRooms(roomsState);
-    };
-
-    this.network.onRoomStateChanged = (room, action, meta) => {
-      if (this.mode === "online") {
-        this.handleOnlineRoomUpdate(room, action, meta);
-      }
-    };
-
+    // Multiplayer
+    this.network.onLobbyUpdated = (roomsState) => this.renderLobbyRooms(roomsState);
+    this.network.onRoomStateChanged = (room, action, meta) => this.handleOnlineRoomUpdate(room, action, meta);
     this.network.onMoveReceived = (msg) => {
-      if (this.mode === "online" && !this.isGameOver) {
-        this.executeMoveWithAnimation(msg.move, true);
-      }
+      if (!this.isGameOver) this.executeMoveWithAnimation(msg.move, true);
     };
-
     this.network.onGameResigned = (resigningColor) => {
-      if (this.mode === "online" && !this.isGameOver) {
+      if (!this.isGameOver) {
         const winner = resigningColor === WHITE ? BLACK : WHITE;
         this.endGame(winner, "resign");
       }
     };
-
     this.network.onGameRestarted = () => {
-      if (this.mode === "online") {
-        this.dom.gameOverModal.classList.add("view-hidden");
-        this.resetGameRound();
-      }
+      this.dom.gameOverModal.classList.add("view-hidden");
+      this.resetGameRound();
     };
-
     this.network.onOpponentLeft = () => {
-      if (this.mode === "online" && !this.isGameOver) {
-        const winner = this.myColor;
-        this.endGame(winner, "opponent_left");
-      }
+      if (!this.isGameOver) this.endGame(this.myColor, "opponent_left");
     };
   }
 
-  setRuleVariant(variant) {
-    this.ruleVariant = variant;
-    localStorage.setItem("checkers_rule_variant", variant);
-    this.updateRuleVariantUI();
+  setCategory(category) {
+    this.activeCategory = category;
+    if (category === "checkers") {
+      this.dom.tabCheckers.classList.add("active");
+      this.dom.tabChess.classList.remove("active");
+      this.dom.checkersOptions.classList.remove("view-hidden");
+      this.dom.chessOptions.classList.add("view-hidden");
+      if (!this.activeMode.startsWith("checkers")) {
+        this.setMode("checkers_thai");
+      }
+    } else {
+      this.dom.tabCheckers.classList.remove("active");
+      this.dom.tabChess.classList.add("active");
+      this.dom.checkersOptions.classList.add("view-hidden");
+      this.dom.chessOptions.classList.remove("view-hidden");
+      if (!this.activeMode.startsWith("chess")) {
+        this.setMode("chess_makruk");
+      }
+    }
   }
 
-  updateRuleVariantUI() {
-    if (this.ruleVariant === RULE_THAI) {
-      this.dom.ruleThaiBtn.classList.add("active");
-      this.dom.ruleIntBtn.classList.remove("active");
-    } else {
-      this.dom.ruleThaiBtn.classList.remove("active");
-      this.dom.ruleIntBtn.classList.add("active");
-    }
+  updateCategoryTabsUI() {
+    this.setCategory(this.activeCategory);
+  }
+
+  setMode(mode) {
+    this.activeMode = mode;
+    localStorage.setItem("board_game_mode", mode);
+    this.updateModeButtonsUI();
+  }
+
+  updateModeButtonsUI() {
+    [this.dom.ruleThaiBtn, this.dom.ruleIntBtn, this.dom.ruleMakrukBtn, this.dom.ruleWesternBtn].forEach(b => {
+      if (b) b.classList.remove("active");
+    });
+
+    if (this.activeMode === "checkers_thai") this.dom.ruleThaiBtn.classList.add("active");
+    else if (this.activeMode === "checkers_international") this.dom.ruleIntBtn.classList.add("active");
+    else if (this.activeMode === "chess_makruk") this.dom.ruleMakrukBtn.classList.add("active");
+    else if (this.activeMode === "chess_western") this.dom.ruleWesternBtn.classList.add("active");
+
     this.renderSidebarRules();
   }
 
   renderSidebarRules() {
-    const isThai = this.ruleVariant === RULE_THAI;
-    this.dom.currentRuleBadge.textContent = isThai ? t("ruleThaiShort") : t("ruleIntShort");
+    let badgeText = "";
+    let rules = [];
 
-    const rules = isThai
-      ? [t("ruleThaiDesc1"), t("ruleThaiDesc2"), t("ruleThaiDesc3"), t("ruleThaiDesc4"), t("ruleThaiDesc5")]
-      : [t("ruleIntDesc1"), t("ruleIntDesc2"), t("ruleIntDesc3"), t("ruleIntDesc4"), t("ruleIntDesc5")];
+    switch (this.activeMode) {
+      case "checkers_thai":
+        badgeText = t("ruleThaiShort");
+        rules = [t("ruleThaiDesc1"), t("ruleThaiDesc2"), t("ruleThaiDesc3"), t("ruleThaiDesc4"), t("ruleThaiDesc5")];
+        break;
+      case "checkers_international":
+        badgeText = t("ruleIntShort");
+        rules = [t("ruleIntDesc1"), t("ruleIntDesc2"), t("ruleIntDesc3"), t("ruleIntDesc4"), t("ruleIntDesc5")];
+        break;
+      case "chess_makruk":
+        badgeText = t("ruleMakrukShort");
+        rules = [t("ruleMakrukDesc1"), t("ruleMakrukDesc2"), t("ruleMakrukDesc3"), t("ruleMakrukDesc4"), t("ruleMakrukDesc5")];
+        break;
+      case "chess_western":
+        badgeText = t("ruleWesternShort");
+        rules = [t("ruleWesternDesc1"), t("ruleWesternDesc2"), t("ruleWesternDesc3"), t("ruleWesternDesc4"), t("ruleWesternDesc5")];
+        break;
+    }
 
+    this.dom.currentRuleBadge.textContent = badgeText;
     this.dom.sidebarRulesList.innerHTML = rules.map(r => `<div>${r}</div>`).join("");
   }
 
@@ -388,7 +465,7 @@ class CheckersApp {
     });
   }
 
-  // --- START MODES ---
+  // --- START GAME ---
   startBotGame() {
     this.mode = "bot";
     this.myColor = WHITE;
@@ -408,11 +485,9 @@ class CheckersApp {
     const res = this.network.joinRoom(roomId, asSpectator);
     this.role = res.role;
 
-    if (this.role === "player1") {
-      this.myColor = WHITE;
-    } else if (this.role === "player2") {
-      this.myColor = BLACK;
-    } else {
+    if (this.role === "player1") this.myColor = WHITE;
+    else if (this.role === "player2") this.myColor = BLACK;
+    else {
       this.role = "spectator";
       this.myColor = null;
     }
@@ -430,14 +505,21 @@ class CheckersApp {
   }
 
   updateMatchTitle(roomId) {
-    const ruleLabel = this.ruleVariant === RULE_THAI ? t("ruleThaiShort") : t("ruleIntShort");
+    let modeLabel = "";
+    switch (this.activeMode) {
+      case "checkers_thai": modeLabel = t("ruleThaiShort"); break;
+      case "checkers_international": modeLabel = t("ruleIntShort"); break;
+      case "chess_makruk": modeLabel = t("ruleMakrukShort"); break;
+      case "chess_western": modeLabel = t("ruleWesternShort"); break;
+    }
+
     if (this.mode === "bot") {
       const diffLabel = t(`diff${this.botDifficulty.charAt(0).toUpperCase() + this.botDifficulty.slice(1)}`);
-      this.dom.matchInfoTitle.textContent = `${t("matchVsBot")} [${diffLabel}] • ${ruleLabel}`;
+      this.dom.matchInfoTitle.textContent = `${t("matchVsBot")} [${diffLabel}] • ${modeLabel}`;
     } else {
       const id = roomId || this.network.currentRoomId || 1;
       const spectateText = this.role === "spectator" ? ` • ${t("spectatingBadge")}` : "";
-      this.dom.matchInfoTitle.textContent = `${t("room")} ${id}${spectateText} • ${ruleLabel}`;
+      this.dom.matchInfoTitle.textContent = `${t("room")} ${id}${spectateText} • ${modeLabel}`;
     }
   }
 
@@ -450,7 +532,6 @@ class CheckersApp {
 
   handleOnlineRoomUpdate(room, action, meta) {
     this.updateOnlinePlayerNames(room);
-
     if (action === "join" && meta.role === "player2") {
       this.dom.mandatoryNotice.classList.add("view-hidden");
       if (this.role === "player1") {
@@ -483,7 +564,6 @@ class CheckersApp {
   }
 
   resetGameRound() {
-    this.board = createInitialBoard(this.ruleVariant);
     this.turn = WHITE;
     this.selectedSquare = null;
     this.legalMovesForSelected = [];
@@ -492,15 +572,33 @@ class CheckersApp {
     this.isGameOver = false;
     this.capturedWhite = 0;
     this.capturedBlack = 0;
-    this.updateCapturedUI();
 
+    switch (this.activeMode) {
+      case "checkers_thai":
+        this.board = createCheckersBoard(RULE_THAI);
+        break;
+      case "checkers_international":
+        this.board = createCheckersBoard(RULE_INTERNATIONAL);
+        break;
+      case "chess_makruk":
+        this.board = createMakrukBoard();
+        break;
+      case "chess_western": {
+        const chessInit = createInitialChess();
+        this.chessFen = chessInit.fen;
+        this.board = chessInit.board;
+        break;
+      }
+    }
+
+    this.updateCapturedUI();
     this.renderBoard();
     this.updateTurnUI();
     this.updatePieceCounts();
     this.startTurnTimer();
   }
 
-  // --- BOARD RENDERING & INTERACTION ---
+  // --- BOARD RENDERING ---
   initBoardDOM() {
     this.dom.boardContainer.innerHTML = "";
     for (let r = 0; r < BOARD_SIZE; r++) {
@@ -521,7 +619,7 @@ class CheckersApp {
       const sq = squares[i];
       const r = parseInt(sq.dataset.row, 10);
       const c = parseInt(sq.dataset.col, 10);
-      const piece = this.board[r][c];
+      const piece = this.board ? this.board[r][c] : null;
 
       sq.classList.remove("selected");
       sq.innerHTML = "";
@@ -531,19 +629,25 @@ class CheckersApp {
         pieceEl.className = `piece ${piece.color === WHITE ? "piece-white" : "piece-black"}`;
         pieceEl.dataset.id = piece.id;
 
-        if (piece.isKing) {
-          pieceEl.innerHTML = CROWN_SVG;
+        // Render piece badge based on game type
+        if (this.modeIsCheckers()) {
+          if (piece.isKing) pieceEl.innerHTML = CROWN_SVG;
+        } else if (this.activeMode === "chess_makruk") {
+          const label = MAKRUK_SYMBOLS[piece.type] || piece.type;
+          pieceEl.innerHTML = `<span class="piece-text-badge">${label}</span>`;
+        } else if (this.activeMode === "chess_western") {
+          const sym = CHESS_SYMBOLS[piece.type] || piece.type;
+          pieceEl.innerHTML = `<span class="piece-symbol-badge">${sym}</span>`;
         }
 
         sq.appendChild(pieceEl);
       }
     }
 
+    // Highlight selected & legal moves
     if (this.selectedSquare) {
       const idx = this.selectedSquare.r * BOARD_SIZE + this.selectedSquare.c;
-      if (squares[idx]) {
-        squares[idx].classList.add("selected");
-      }
+      if (squares[idx]) squares[idx].classList.add("selected");
 
       this.legalMovesForSelected.forEach(m => {
         const targetIdx = m.to.r * BOARD_SIZE + m.to.c;
@@ -556,34 +660,56 @@ class CheckersApp {
       });
     }
 
-    const allLegal = getLegalMoves(this.board, this.turn, this.ruleVariant);
-    if (allLegal.isJump && !this.isGameOver) {
-      this.dom.mandatoryNotice.textContent = t("mandatoryJumpNotice");
-      this.dom.mandatoryNotice.classList.remove("view-hidden");
+    // Notices (Mandatory Jump or Check)
+    if (this.modeIsCheckers()) {
+      const allLegal = getLegalCheckersMoves(this.board, this.turn, this.activeMode === "checkers_thai" ? RULE_THAI : RULE_INTERNATIONAL);
+      if (allLegal.isJump && !this.isGameOver) {
+        this.dom.mandatoryNotice.textContent = t("mandatoryJumpNotice");
+        this.dom.mandatoryNotice.classList.remove("view-hidden");
+      } else {
+        this.dom.mandatoryNotice.classList.add("view-hidden");
+      }
+    } else if (this.activeMode === "chess_makruk") {
+      const inCheck = isMakrukKingInCheck(this.board, this.turn);
+      if (inCheck && !this.isGameOver) {
+        this.dom.mandatoryNotice.textContent = t("checkNotice");
+        this.dom.mandatoryNotice.classList.remove("view-hidden");
+      } else {
+        this.dom.mandatoryNotice.classList.add("view-hidden");
+      }
     } else {
       this.dom.mandatoryNotice.classList.add("view-hidden");
     }
   }
 
   handleSquareClick(r, c) {
-    if (this.isAnimating || this.isGameOver) return;
-    if (this.role === "spectator") return;
+    if (this.isAnimating || this.isGameOver || this.role === "spectator") return;
     if (this.turn !== this.myColor) return;
 
+    // Checkers locked in multi-jump
     if (this.multiJumpFrom) {
       if (r !== this.multiJumpFrom.r || c !== this.multiJumpFrom.c) {
         const move = this.legalMovesForSelected.find(m => m.to.r === r && m.to.c === c);
-        if (move) {
-          this.executeMoveWithAnimation(move);
-        }
+        if (move) this.executeMoveWithAnimation(move);
         return;
       }
     }
 
     const clickedPiece = this.board[r][c];
 
+    // Clicking own piece to select
     if (clickedPiece && clickedPiece.color === this.turn) {
-      const legalMoves = getMovesForPiece(this.board, r, c, this.turn, this.ruleVariant);
+      let legalMoves = [];
+      if (this.modeIsCheckers()) {
+        const ruleVar = this.activeMode === "checkers_thai" ? RULE_THAI : RULE_INTERNATIONAL;
+        legalMoves = getCheckersMovesForPiece(this.board, r, c, this.turn, ruleVar);
+      } else if (this.activeMode === "chess_makruk") {
+        const allLegal = getLegalMakrukMoves(this.board, this.turn);
+        legalMoves = allLegal.filter(m => m.from.r === r && m.from.c === c);
+      } else if (this.activeMode === "chess_western") {
+        legalMoves = getLegalChessMoves(this.chessFen, r, c);
+      }
+
       if (legalMoves.length > 0) {
         this.selectedSquare = { r, c };
         this.legalMovesForSelected = legalMoves;
@@ -592,6 +718,7 @@ class CheckersApp {
       }
     }
 
+    // Clicking target square
     if (this.selectedSquare) {
       const move = this.legalMovesForSelected.find(m => m.to.r === r && m.to.c === c);
       if (move) {
@@ -617,7 +744,7 @@ class CheckersApp {
     const toSq = squares[toIdx];
     const pieceEl = fromSq ? fromSq.querySelector(".piece") : null;
 
-    // 1. Move animation (ตอนเดิน)
+    // 1. Move Animation
     if (pieceEl && fromSq && toSq) {
       const fromRect = fromSq.getBoundingClientRect();
       const toRect = toSq.getBoundingClientRect();
@@ -628,18 +755,19 @@ class CheckersApp {
       playMove();
 
       pieceEl.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
-      await new Promise(res => setTimeout(res, 280));
+      await new Promise(res => setTimeout(res, 270));
     }
 
-    // 2. Destroy animation (ตอนโดนทำลาย)
+    // 2. Capture Shockwave Animation
     if (move.captured) {
-      const capIdx = move.captured.r * BOARD_SIZE + move.captured.c;
+      const capR = move.captured.r !== undefined ? move.captured.r : move.to.r;
+      const capC = move.captured.c !== undefined ? move.captured.c : move.to.c;
+      const capIdx = capR * BOARD_SIZE + capC;
       const capSq = squares[capIdx];
       const capPieceEl = capSq ? capSq.querySelector(".piece") : null;
 
       if (capPieceEl) {
         capPieceEl.classList.add("piece-destroyed");
-
         const shockwave = document.createElement("div");
         shockwave.className = "capture-shockwave";
         capSq.appendChild(shockwave);
@@ -647,53 +775,65 @@ class CheckersApp {
         playCapture();
         await new Promise(res => setTimeout(res, 220));
       }
-    }
 
-    // Apply move in rules engine
-    const outcome = applyMove(this.board, move, this.ruleVariant);
-    this.board = outcome.board;
-
-    if (move.captured) {
-      if (move.captured.piece.color === WHITE) {
-        this.capturedWhite++;
-      } else {
-        this.capturedBlack++;
-      }
+      if (this.turn === WHITE) this.capturedBlack++;
+      else this.capturedWhite++;
       this.updateCapturedUI();
     }
 
-    // 3. King transformation (การเปลี่ยนเป็น horse / ฮอส)
-    if (outcome.promoted) {
+    // 3. Engine Application
+    let nextTurn = null;
+    let promoted = false;
+    let furtherJumps = [];
+
+    if (this.modeIsCheckers()) {
+      const ruleVar = this.activeMode === "checkers_thai" ? RULE_THAI : RULE_INTERNATIONAL;
+      const outcome = applyCheckersMove(this.board, move, ruleVar);
+      this.board = outcome.board;
+      promoted = outcome.promoted;
+      furtherJumps = outcome.furtherJumps;
+      nextTurn = outcome.nextTurn;
+    } else if (this.activeMode === "chess_makruk") {
+      const outcome = applyMakrukMove(this.board, move);
+      this.board = outcome.board;
+      promoted = outcome.promoted;
+      nextTurn = outcome.nextTurn;
+    } else if (this.activeMode === "chess_western") {
+      const outcome = applyChessMove(this.chessFen, move);
+      if (outcome) {
+        this.chessFen = outcome.fen;
+        this.board = outcome.board;
+        promoted = outcome.promoted;
+        nextTurn = outcome.nextTurn;
+      }
+    }
+
+    // Promotion Animation
+    if (promoted) {
       playKing();
       this.renderBoard();
       const newPieceEl = toSq ? toSq.querySelector(".piece") : null;
       if (newPieceEl) {
         newPieceEl.classList.add("piece-promoting");
-
         const promoRing = document.createElement("div");
         promoRing.className = "promotion-ripple";
         toSq.appendChild(promoRing);
-
-        const crown = newPieceEl.querySelector(".king-crown");
-        if (crown) crown.classList.add("crown-animating");
-
-        await new Promise(res => setTimeout(res, 450));
+        await new Promise(res => setTimeout(res, 400));
       }
     }
 
-    // Multi-jump continuation
-    if (outcome.furtherJumps.length > 0) {
+    // Multi-jump check (Checkers)
+    if (furtherJumps.length > 0) {
       this.multiJumpFrom = { r: move.to.r, c: move.to.c };
       this.selectedSquare = this.multiJumpFrom;
-      this.legalMovesForSelected = outcome.furtherJumps;
+      this.legalMovesForSelected = furtherJumps;
       this.renderBoard();
       this.updatePieceCounts();
       this.isAnimating = false;
 
       if (this.mode === "bot" && this.turn === BLACK) {
         setTimeout(() => {
-          const nextAIMove = outcome.furtherJumps[0];
-          this.executeMoveWithAnimation(nextAIMove);
+          this.executeMoveWithAnimation(furtherJumps[0]);
         }, 350);
       }
       return;
@@ -703,7 +843,7 @@ class CheckersApp {
     this.multiJumpFrom = null;
     this.selectedSquare = null;
     this.legalMovesForSelected = [];
-    this.turn = outcome.nextTurn;
+    this.turn = nextTurn;
 
     this.renderBoard();
     this.updateTurnUI();
@@ -716,33 +856,61 @@ class CheckersApp {
 
     this.startTurnTimer();
 
-    const gameOverStatus = checkGameOver(this.board, this.turn, this.ruleVariant);
-    if (gameOverStatus.isOver) {
-      this.endGame(gameOverStatus.winner, gameOverStatus.reason);
-      return;
-    }
+    // Check game over
+    this.checkCurrentGameOver();
 
+    // Trigger BOT turn if applicable
     if (this.mode === "bot" && this.turn === BLACK && !this.isGameOver) {
       this.triggerBotTurn();
     }
   }
 
+  checkCurrentGameOver() {
+    let status = { isOver: false, winner: null, reason: null };
+
+    if (this.modeIsCheckers()) {
+      const ruleVar = this.activeMode === "checkers_thai" ? RULE_THAI : RULE_INTERNATIONAL;
+      status = checkCheckersGameOver(this.board, this.turn, ruleVar);
+    } else if (this.activeMode === "chess_makruk") {
+      status = checkMakrukGameOver(this.board, this.turn);
+    } else if (this.activeMode === "chess_western") {
+      // Handled via applyChessMove checkmate
+      const legal = getLegalChessMoves(this.chessFen);
+      if (legal.length === 0) {
+        status = { isOver: true, winner: this.turn === WHITE ? BLACK : WHITE, reason: "checkmate" };
+      }
+    }
+
+    if (status.isOver) {
+      this.endGame(status.winner, status.reason);
+    }
+  }
+
   triggerBotTurn() {
-    const delay = Math.random() * 250 + 400;
+    const delay = Math.random() * 250 + 380;
     setTimeout(() => {
-      if (this.aiWorker) {
-        this.aiWorker.postMessage({
-          board: this.board,
-          botColor: BLACK,
-          difficulty: this.botDifficulty,
-          ruleVariant: this.ruleVariant,
-          requestId: Date.now()
-        });
-      } else {
-        const bestMove = getAIMove(this.board, BLACK, this.botDifficulty, this.ruleVariant);
-        if (bestMove && !this.isGameOver) {
-          this.executeMoveWithAnimation(bestMove);
+      if (this.isGameOver) return;
+
+      if (this.modeIsCheckers()) {
+        const ruleVar = this.activeMode === "checkers_thai" ? RULE_THAI : RULE_INTERNATIONAL;
+        if (this.aiWorker) {
+          this.aiWorker.postMessage({
+            board: this.board,
+            botColor: BLACK,
+            difficulty: this.botDifficulty,
+            ruleVariant: ruleVar,
+            requestId: Date.now()
+          });
+        } else {
+          const best = getAICheckersMove(this.board, BLACK, this.botDifficulty, ruleVar);
+          if (best) this.executeMoveWithAnimation(best);
         }
+      } else if (this.activeMode === "chess_makruk") {
+        const best = getAIMakrukMove(this.board, BLACK, this.botDifficulty);
+        if (best) this.executeMoveWithAnimation(best);
+      } else if (this.activeMode === "chess_western") {
+        const best = getAIChessMove(this.chessFen, BLACK, this.botDifficulty);
+        if (best) this.executeMoveWithAnimation(best);
       }
     }, delay);
   }
@@ -767,9 +935,22 @@ class CheckersApp {
   }
 
   updatePieceCounts() {
-    const counts = countPieces(this.board);
-    this.dom.whitePiecesCount.textContent = counts.white.total;
-    this.dom.blackPiecesCount.textContent = counts.black.total;
+    if (!this.board) return;
+    let whiteTotal = 0;
+    let blackTotal = 0;
+
+    for (let r = 0; r < BOARD_SIZE; r++) {
+      for (let c = 0; c < BOARD_SIZE; c++) {
+        const p = this.board[r][c];
+        if (p) {
+          if (p.color === WHITE) whiteTotal++;
+          else blackTotal++;
+        }
+      }
+    }
+
+    this.dom.whitePiecesCount.textContent = whiteTotal;
+    this.dom.blackPiecesCount.textContent = blackTotal;
   }
 
   updateCapturedUI() {
@@ -826,9 +1007,7 @@ class CheckersApp {
   handleResign(resigningColor) {
     if (this.isGameOver) return;
     const winningColor = resigningColor === WHITE ? BLACK : WHITE;
-    if (this.mode === "online") {
-      this.network.sendResign(resigningColor);
-    }
+    if (this.mode === "online") this.network.sendResign(resigningColor);
     this.endGame(winningColor, "resign");
   }
 
@@ -838,26 +1017,19 @@ class CheckersApp {
     playVictory();
 
     let winnerText = winner === WHITE ? t("winnerWhite") : t("winnerBlack");
-    let reasonText = "";
+    if (!winner) winnerText = t("drawGame");
 
+    let reasonText = "";
     switch (reason) {
-      case "elimination":
-        reasonText = t("reasonElimination");
-        break;
-      case "blocked":
-        reasonText = t("reasonBlocked");
-        break;
-      case "timeout":
-        reasonText = t("reasonTimeout");
-        break;
-      case "resign":
-        reasonText = t("reasonResign");
-        break;
-      case "opponent_left":
-        reasonText = t("opponentDisconnected");
-        break;
-      default:
-        reasonText = "";
+      case "elimination": reasonText = t("reasonElimination"); break;
+      case "blocked": reasonText = t("reasonBlocked"); break;
+      case "checkmate": reasonText = t("reasonCheckmate"); break;
+      case "stalemate":
+      case "draw": reasonText = t("reasonStalemate"); break;
+      case "timeout": reasonText = t("reasonTimeout"); break;
+      case "resign": reasonText = t("reasonResign"); break;
+      case "opponent_left": reasonText = t("opponentDisconnected"); break;
+      default: reasonText = "";
     }
 
     this.dom.modalWinnerTitle.textContent = winnerText;
@@ -867,5 +1039,5 @@ class CheckersApp {
 }
 
 window.addEventListener("DOMContentLoaded", () => {
-  window.app = new CheckersApp();
+  window.app = new BoardGameApp();
 });

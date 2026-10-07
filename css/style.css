@@ -1,26 +1,26 @@
-/* style.css - Minimal Monochrome Aesthetic */
+/* style.css - Minimal Monochrome Aesthetic with 100% Viewport-Fit Dashboard */
 :root {
   --bg-color: #0c0d0e;
   --surface-color: #141517;
-  --surface-card: #191b1e;
-  --surface-border: #26292e;
+  --surface-card: #18191c;
+  --surface-border: #26282d;
   --text-main: #f5f5f7;
   --text-muted: #888d96;
   --accent-white: #ffffff;
   --accent-black: #000000;
   
-  --board-border: #2b2e34;
-  --square-light: #eceef0;
-  --square-dark: #1a1b1f;
-  --square-selected: rgba(255, 255, 255, 0.24);
+  --board-border: #2a2d33;
+  --square-light: #eaecf0;
+  --square-dark: #1b1c20;
+  --square-selected: rgba(255, 255, 255, 0.28);
   --square-valid: rgba(255, 255, 255, 0.45);
-  --square-jump: rgba(255, 255, 255, 0.75);
+  --square-jump: rgba(255, 255, 255, 0.8);
 
   --piece-white-bg: radial-gradient(circle at 35% 30%, #ffffff 0%, #d8dade 85%, #b0b4ba 100%);
   --piece-white-border: #ffffff;
   --piece-white-shadow: 0 4px 10px rgba(0, 0, 0, 0.6), inset 0 2px 3px rgba(255, 255, 255, 0.9);
 
-  --piece-black-bg: radial-gradient(circle at 35% 30%, #2f3136 0%, #151618 75%, #050506 100%);
+  --piece-black-bg: radial-gradient(circle at 35% 30%, #2e3035 0%, #151618 75%, #050506 100%);
   --piece-black-border: #4d5159;
   --piece-black-shadow: 0 4px 10px rgba(0, 0, 0, 0.8), inset 0 1px 2px rgba(255, 255, 255, 0.2);
 
@@ -33,49 +33,48 @@
   padding: 0;
 }
 
-body {
+html, body {
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
   background-color: var(--bg-color);
   color: var(--text-main);
   font-family: var(--font-stack);
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  overflow-x: hidden;
   user-select: none;
   -webkit-font-smoothing: antialiased;
 }
 
-/* Header */
+/* Header (Fixed compact 48px) */
 header {
+  height: 48px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.9rem 2rem;
+  padding: 0 1.5rem;
   border-bottom: 1px solid var(--surface-border);
-  background-color: rgba(12, 13, 14, 0.92);
+  background-color: rgba(12, 13, 14, 0.95);
   backdrop-filter: blur(12px);
-  position: sticky;
-  top: 0;
   z-index: 100;
+  flex-shrink: 0;
 }
 
 .brand h1 {
-  font-size: 1.2rem;
+  font-size: 1.05rem;
   font-weight: 800;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
 .brand p {
-  font-size: 0.75rem;
+  font-size: 0.68rem;
   color: var(--text-muted);
   letter-spacing: 0.05em;
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
 .header-controls {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.6rem;
   align-items: center;
 }
 
@@ -91,8 +90,8 @@ header {
   background: transparent;
   border: none;
   color: var(--text-muted);
-  padding: 0.35rem 0.75rem;
-  font-size: 0.75rem;
+  padding: 0.28rem 0.65rem;
+  font-size: 0.72rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -107,30 +106,29 @@ header {
   background-color: var(--surface-color);
   border: 1px solid var(--surface-border);
   color: var(--text-main);
-  padding: 0.4rem 0.85rem;
+  padding: 0.3rem 0.75rem;
   border-radius: 20px;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.35rem;
 }
 
 .icon-btn:hover {
   border-color: var(--text-main);
 }
 
-/* Main Container */
+/* Main Area (Fits exactly in viewport minus header) */
 main {
-  flex: 1;
+  height: calc(100vh - 48px);
+  max-height: calc(100vh - 48px);
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  padding: 1.5rem;
-  max-width: 1200px;
-  margin: 0 auto;
-  width: 100%;
+  padding: 0.5rem 1rem;
 }
 
 .view-hidden {
@@ -139,24 +137,27 @@ main {
 
 /* --- LOBBY VIEW --- */
 .lobby-view {
+  height: 100%;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.1rem;
   max-width: 960px;
   margin: 0 auto;
   width: 100%;
+  padding-bottom: 1rem;
 }
 
 .profile-card {
   background-color: var(--surface-color);
   border: 1px solid var(--surface-border);
-  border-radius: 12px;
-  padding: 1.25rem;
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
 .profile-input-group {
@@ -164,11 +165,11 @@ main {
   align-items: center;
   gap: 0.75rem;
   flex: 1;
-  min-width: 260px;
+  min-width: 240px;
 }
 
 .profile-input-group label {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--text-muted);
   white-space: nowrap;
 }
@@ -177,9 +178,9 @@ main {
   background-color: var(--bg-color);
   border: 1px solid var(--surface-border);
   color: var(--text-main);
-  padding: 0.5rem 0.85rem;
+  padding: 0.45rem 0.8rem;
   border-radius: 6px;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   outline: none;
   flex: 1;
   transition: border-color 0.2s;
@@ -189,27 +190,46 @@ main {
   border-color: var(--text-main);
 }
 
-/* Rule Variant Selector Card */
-.rule-selector-card {
+/* Game Category & Rule Selector Card */
+.game-selector-card {
   background-color: var(--surface-color);
   border: 1px solid var(--surface-border);
-  border-radius: 12px;
-  padding: 1.25rem;
+  border-radius: 10px;
+  padding: 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
 }
 
-.card-title-row h2 {
-  font-size: 0.95rem;
+.category-tabs {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--surface-border);
+  padding-bottom: 0.5rem;
+}
+
+.cat-tab {
+  background: transparent;
+  border: 1px solid var(--surface-border);
+  color: var(--text-muted);
+  padding: 0.5rem 1.4rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
   font-weight: 700;
-  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cat-tab.active {
+  background-color: var(--text-main);
+  color: var(--accent-black);
+  border-color: var(--text-main);
 }
 
 .rule-options-group {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.85rem;
+  gap: 0.75rem;
 }
 
 @media (max-width: 600px) {
@@ -222,24 +242,24 @@ main {
   background-color: var(--bg-color);
   border: 1px solid var(--surface-border);
   color: var(--text-muted);
-  padding: 0.85rem 1rem;
+  padding: 0.75rem 0.9rem;
   border-radius: 8px;
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0.25rem;
   text-align: left;
   transition: all 0.2s ease;
 }
 
 .rule-btn-title {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 700;
   color: var(--text-main);
 }
 
 .rule-btn-sub {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: var(--text-muted);
   line-height: 1.3;
 }
@@ -258,16 +278,15 @@ main {
 .bot-card {
   background-color: var(--surface-color);
   border: 1px solid var(--surface-border);
-  border-radius: 12px;
-  padding: 1.25rem;
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.85rem;
 }
 
 .bot-card-header h2 {
-  font-size: 0.95rem;
-  letter-spacing: 0.05em;
+  font-size: 0.9rem;
   font-weight: 700;
 }
 
@@ -282,9 +301,9 @@ main {
   background-color: var(--bg-color);
   border: 1px solid var(--surface-border);
   color: var(--text-muted);
-  padding: 0.45rem 0.9rem;
+  padding: 0.4rem 0.85rem;
   border-radius: 6px;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
@@ -300,11 +319,10 @@ main {
   background-color: var(--text-main);
   color: var(--accent-black);
   border: none;
-  padding: 0.65rem 1.4rem;
+  padding: 0.55rem 1.25rem;
   border-radius: 6px;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 700;
-  letter-spacing: 0.05em;
   cursor: pointer;
   transition: all 0.2s ease;
   align-self: flex-start;
@@ -312,14 +330,13 @@ main {
 
 .primary-btn:hover {
   background-color: #d8dade;
-  transform: translateY(-1px);
 }
 
-/* Multiplayer Rooms Section */
+/* Multiplayer 6 Rooms */
 .multiplayer-section {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
 .section-header {
@@ -329,31 +346,29 @@ main {
 }
 
 .section-header h2 {
-  font-size: 0.95rem;
-  letter-spacing: 0.05em;
+  font-size: 0.9rem;
   font-weight: 700;
 }
 
 .rooms-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1rem;
+  gap: 0.85rem;
 }
 
 .room-card {
   background-color: var(--surface-color);
   border: 1px solid var(--surface-border);
-  border-radius: 12px;
-  padding: 1.15rem;
+  border-radius: 10px;
+  padding: 0.9rem 1rem;
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
-  transition: border-color 0.2s, transform 0.2s;
+  gap: 0.75rem;
+  transition: border-color 0.2s;
 }
 
 .room-card:hover {
   border-color: #40444c;
-  transform: translateY(-2px);
 }
 
 .room-header {
@@ -363,15 +378,15 @@ main {
 }
 
 .room-title {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 700;
 }
 
 .room-badge {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 600;
-  padding: 0.25rem 0.55rem;
-  border-radius: 12px;
+  padding: 0.2rem 0.5rem;
+  border-radius: 10px;
 }
 
 .badge-empty {
@@ -395,23 +410,23 @@ main {
 .room-players {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  font-size: 0.8rem;
+  gap: 0.3rem;
+  font-size: 0.75rem;
   background-color: var(--bg-color);
-  padding: 0.65rem 0.75rem;
-  border-radius: 8px;
+  padding: 0.5rem 0.7rem;
+  border-radius: 6px;
   border: 1px solid var(--surface-border);
 }
 
 .player-slot {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.45rem;
 }
 
 .player-dot {
-  width: 9px;
-  height: 9px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   display: inline-block;
   flex-shrink: 0;
@@ -436,7 +451,7 @@ main {
 }
 
 .spectator-count {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: var(--text-muted);
 }
 
@@ -449,9 +464,9 @@ main {
   background-color: transparent;
   border: 1px solid var(--surface-border);
   color: var(--text-main);
-  padding: 0.45rem 0.85rem;
+  padding: 0.38rem 0.75rem;
   border-radius: 6px;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
@@ -465,9 +480,9 @@ main {
   background-color: var(--text-main);
   color: var(--accent-black);
   border: none;
-  padding: 0.45rem 0.85rem;
+  padding: 0.38rem 0.75rem;
   border-radius: 6px;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s;
@@ -477,83 +492,85 @@ main {
   background-color: #d8dade;
 }
 
-/* --- GAME ARENA (SIDE-BY-SIDE 2-COLUMN LAYOUT) --- */
+/* --- 2. GAME ARENA: 100% VIEWPORT FIT DASHBOARD --- */
 .game-view {
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
 }
 
-.game-layout {
-  display: grid;
-  grid-template-columns: minmax(320px, 520px) 340px;
-  gap: 2rem;
+.game-fit-layout {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
   justify-content: center;
-  align-items: start;
+  gap: 1.5rem;
   width: 100%;
+  height: 100%;
+  max-height: 100%;
+  max-width: 1300px;
   margin: 0 auto;
 }
 
-@media (max-width: 900px) {
-  .game-layout {
-    grid-template-columns: 1fr;
-    max-width: 520px;
-    gap: 1.5rem;
-  }
-}
-
-/* Board Column */
-.board-column {
+/* Left Column: Board Maximized */
+.board-column-fit {
+  height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  justify-content: center;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1;
+}
+
+.board-header-bar {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
   width: 100%;
+  max-width: min(calc(100vh - 100px), calc(100vw - 360px));
+  min-height: 24px;
 }
 
-.board-top-status {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  width: 100%;
-  text-align: center;
-}
-
-.match-title-text {
-  font-size: 0.85rem;
+.match-info-badge {
+  font-size: 0.8rem;
   font-weight: 700;
   color: var(--text-muted);
   letter-spacing: 0.05em;
 }
 
-.mandatory-notice-banner {
-  font-size: 0.8rem;
-  font-weight: 600;
-  padding: 0.4rem 0.8rem;
-  background-color: #241e17;
+.notice-pill {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.2rem 0.6rem;
+  background-color: #272115;
   color: #ffb84d;
   border: 1px solid #4a3a24;
-  border-radius: 6px;
-  text-align: center;
+  border-radius: 12px;
   animation: urgentTick 1.4s infinite ease-in-out;
 }
 
-/* Board Canvas / Grid */
-.board-wrapper {
-  position: relative;
+.board-wrapper-fit {
   display: flex;
   justify-content: center;
   align-items: center;
-  width: 100%;
 }
 
 .board-container {
-  width: 100%;
-  max-width: 520px;
+  height: min(calc(100vh - 100px), calc(100vw - 360px));
+  width: min(calc(100vh - 100px), calc(100vw - 360px));
+  max-height: 720px;
+  max-width: 720px;
   aspect-ratio: 1 / 1;
   display: grid;
   grid-template-columns: repeat(8, 1fr);
   grid-template-rows: repeat(8, 1fr);
-  border: 6px solid var(--board-border);
-  border-radius: 10px;
+  border: 5px solid var(--board-border);
+  border-radius: 8px;
   box-shadow: 0 15px 35px rgba(0, 0, 0, 0.75);
   background-color: var(--square-dark);
   position: relative;
@@ -578,29 +595,29 @@ main {
 
 .square.selected {
   background-color: var(--square-selected) !important;
-  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.85);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.9);
 }
 
 .move-indicator {
-  width: 24%;
-  height: 24%;
+  width: 22%;
+  height: 22%;
   border-radius: 50%;
   background-color: var(--square-valid);
   pointer-events: none;
 }
 
 .jump-indicator {
-  width: 75%;
-  height: 75%;
+  width: 70%;
+  height: 70%;
   border-radius: 50%;
   border: 3px dashed var(--square-jump);
   pointer-events: none;
 }
 
-/* Pieces */
+/* --- PIECE RENDERING --- */
 .piece {
-  width: 78%;
-  height: 78%;
+  width: 80%;
+  height: 80%;
   border-radius: 50%;
   position: relative;
   cursor: pointer;
@@ -612,28 +629,31 @@ main {
 }
 
 .piece:hover {
-  transform: scale(1.05);
+  transform: scale(1.06);
 }
 
 .piece-white {
   background: var(--piece-white-bg);
   border: 2px solid var(--piece-white-border);
   box-shadow: var(--piece-white-shadow);
+  color: #111111;
 }
 
 .piece-black {
   background: var(--piece-black-bg);
   border: 2px solid var(--piece-black-border);
   box-shadow: var(--piece-black-shadow);
+  color: #ffffff;
 }
 
+/* Concentric ring for pieces */
 .piece::after {
   content: "";
   position: absolute;
-  width: 65%;
-  height: 65%;
+  width: 68%;
+  height: 68%;
   border-radius: 50%;
-  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  border: 1.5px solid rgba(255, 255, 255, 0.18);
   pointer-events: none;
 }
 
@@ -642,44 +662,58 @@ main {
 }
 
 .king-crown {
-  width: 52%;
-  height: 52%;
+  width: 50%;
+  height: 50%;
   fill: currentColor;
   position: relative;
   z-index: 12;
 }
 
-.piece-white .king-crown {
-  color: #1a1a1a;
+/* Makruk & Western Chess Piece Labels / Badges */
+.piece-text-badge {
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  position: relative;
+  z-index: 12;
+  text-align: center;
+  line-height: 1;
 }
 
-.piece-black .king-crown {
-  color: #ffffff;
+.piece-symbol-badge {
+  font-size: 1.45rem;
+  line-height: 1;
+  position: relative;
+  z-index: 12;
 }
 
-/* --- SIDEBAR PANEL (ด้านข้าง) --- */
-.game-sidebar {
+/* --- RIGHT COLUMN: SIDEBAR (FIT IN VIEWPORT) --- */
+.sidebar-fit {
+  width: 320px;
+  flex-shrink: 0;
+  height: min(calc(100vh - 100px), 720px);
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  width: 100%;
+  justify-content: space-between;
+  gap: 0.4rem;
+  overflow: hidden;
 }
 
 .sidebar-card {
   background-color: var(--surface-color);
   border: 1px solid var(--surface-border);
-  border-radius: 10px;
-  padding: 1rem;
+  border-radius: 8px;
+  padding: 0.45rem 0.75rem;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.35rem;
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.8rem;
+  font-size: 0.72rem;
   font-weight: 700;
   color: var(--text-muted);
   letter-spacing: 0.05em;
@@ -690,37 +724,36 @@ main {
 .players-list {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.3rem;
 }
 
 .player-box {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.6rem 0.8rem;
+  padding: 0.45rem 0.65rem;
   background-color: var(--surface-card);
   border: 1px solid var(--surface-border);
-  border-radius: 8px;
-  transition: all 0.2s;
+  border-radius: 6px;
 }
 
 .player-tag {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.45rem;
 }
 
 .player-name-text {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 600;
 }
 
 .piece-count-badge {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 700;
   background-color: var(--bg-color);
-  padding: 0.2rem 0.5rem;
-  border-radius: 10px;
+  padding: 0.15rem 0.45rem;
+  border-radius: 8px;
   border: 1px solid var(--surface-border);
 }
 
@@ -732,38 +765,38 @@ main {
 .turn-status-banner {
   background-color: var(--bg-color);
   border: 1px solid var(--surface-border);
-  padding: 0.5rem;
+  padding: 0.35rem;
   border-radius: 6px;
   text-align: center;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: 0.05em;
 }
 
-/* Digital Countdown Timer in Sidebar */
+/* Digital Countdown in Sidebar */
 .digital-timer-display {
   display: flex;
   align-items: baseline;
   justify-content: center;
-  gap: 0.4rem;
-  padding: 0.5rem 0;
+  gap: 0.35rem;
+  padding: 0.15rem 0;
 }
 
 .timer-big-num {
-  font-size: 2.2rem;
+  font-size: 1.85rem;
   font-weight: 800;
   letter-spacing: -0.02em;
   line-height: 1;
 }
 
 .timer-unit {
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
 }
 
 .timer-bar-bg {
   width: 100%;
-  height: 6px;
+  height: 5px;
   background-color: var(--surface-border);
   border-radius: 3px;
   overflow: hidden;
@@ -785,8 +818,8 @@ main {
   display: flex;
   justify-content: space-around;
   background-color: var(--surface-card);
-  padding: 0.6rem;
-  border-radius: 8px;
+  padding: 0.35rem;
+  border-radius: 6px;
   border: 1px solid var(--surface-border);
 }
 
@@ -794,33 +827,32 @@ main {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.2rem;
-  font-size: 0.75rem;
+  gap: 0.1rem;
+  font-size: 0.7rem;
   color: var(--text-muted);
 }
 
 .captured-stat-item strong {
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   color: var(--text-main);
 }
 
 /* Game Controls in Sidebar */
 .controls-actions {
   display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+  gap: 0.4rem;
 }
 
 .controls-actions button {
   flex: 1;
-  min-width: 90px;
+  padding: 0.35rem 0.5rem;
 }
 
 /* Rules Card in Sidebar */
 .rule-badge-pill {
-  font-size: 0.7rem;
-  padding: 0.15rem 0.5rem;
-  border-radius: 10px;
+  font-size: 0.68rem;
+  padding: 0.12rem 0.45rem;
+  border-radius: 8px;
   background-color: var(--bg-color);
   color: var(--text-main);
   border: 1px solid var(--surface-border);
@@ -829,10 +861,10 @@ main {
 .rules-detail-list {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-  font-size: 0.75rem;
+  gap: 0.2rem;
+  font-size: 0.7rem;
   color: var(--text-muted);
-  line-height: 1.45;
+  line-height: 1.35;
 }
 
 /* Modal */
@@ -851,39 +883,48 @@ main {
   background-color: var(--surface-color);
   border: 1px solid var(--surface-border);
   border-radius: 12px;
-  padding: 2rem;
-  max-width: 400px;
+  padding: 1.8rem;
+  max-width: 380px;
   width: 90%;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 1.25rem;
+  gap: 1.1rem;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.9);
 }
 
 .modal-content h2 {
-  font-size: 1.4rem;
+  font-size: 1.3rem;
   font-weight: 800;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
 }
 
 .modal-content p {
   color: var(--text-muted);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
 }
 
 .modal-actions {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.65rem;
   width: 100%;
   justify-content: center;
 }
 
-/* Footer */
-footer {
-  margin-top: auto;
-  padding: 1.5rem;
-  border-top: 1px solid var(--surface-border);
-  text-align: center;
+/* Media query for screens with very small height */
+@media (max-height: 600px) {
+  header {
+    height: 40px;
+  }
+  main {
+    height: calc(100vh - 40px);
+  }
+  .board-container {
+    height: min(calc(100vh - 70px), calc(100vw - 340px));
+    width: min(calc(100vh - 70px), calc(100vw - 340px));
+  }
+  .sidebar-fit {
+    height: min(calc(100vh - 70px), 600px);
+  }
 }

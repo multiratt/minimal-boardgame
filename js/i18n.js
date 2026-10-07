@@ -1,23 +1,36 @@
 // i18n.js - 100% Pure Bilingual Support (Thai / English)
+// Supports: Thai Checkers, International Checkers, Thai Chess (Makruk), Western Chess
 
 export const translations = {
   th: {
     // Header
-    appTitle: "MINIMAL CHECKERS",
-    appSubtitle: "หมากฮอสขาว-ดำ มินิมอล",
+    appTitle: "MINIMAL BOARD GAMES",
+    appSubtitle: "หมากฮอส & หมากรุก มินิมอลขาว-ดำ",
     soundOn: "เสียง: เปิด",
     soundOff: "เสียง: ปิด",
     langTh: "ไทย",
     langEn: "EN",
 
-    // Rule Selection
+    // Game Category & Variant Selection
+    gameCategoryLabel: "เลือกเกมที่ต้องการเล่น:",
+    gameCheckersTab: "หมากฮอส",
+    gameChessTab: "หมากรุก",
     rulesSelectorLabel: "เลือกกติกาการเล่น:",
+    
+    // Checkers Variants
     ruleThai: "กติกาไทย (8 ตัว • ฮอสบิน)",
     ruleInternational: "กติกาสากล (12 ตัว • ฮอส 1 ก้าว)",
-    ruleThaiShort: "กติกาไทย (ฮอสบิน)",
-    ruleIntShort: "กติกาสากล (12 ตัว)",
+    ruleThaiShort: "หมากฮอสไทย (ฮอสบิน)",
+    ruleIntShort: "หมากฮอสสากล (12 ตัว)",
+
+    // Chess Variants
+    ruleMakruk: "หมากรุกไทย (ขุน, เม็ด, โคน, ม้า, เรือ, เบี้ย)",
+    ruleWesternChess: "หมากรุกสากล (King, Queen, Rook, Bishop, Knight, Pawn)",
+    ruleMakrukShort: "หมากรุกไทย",
+    ruleWesternShort: "หมากรุกสากล",
+
     currentRuleTitle: "กติกาปัจจุบัน:",
-    rulesHeader: "สรุปกติกาการเล่น",
+    rulesHeader: "กติกาการเล่น",
 
     // Lobby
     enterNamePrompt: "ตั้งชื่อผู้เล่นของคุณ",
@@ -47,7 +60,7 @@ export const translations = {
     // Game Arena Sidebar
     matchVsBot: "แข่งกับบอท",
     spectatingBadge: "โหมดผู้ชมสด",
-    playersHeader: "ผู้เล่นและการแข่งขัน",
+    playersHeader: "ผู้เล่น & ตาเดิน",
     playerWhite: "ฝ่ายสีขาว",
     playerBlack: "ฝ่ายสีดำ",
     botName: "บอท",
@@ -58,8 +71,9 @@ export const translations = {
     
     timerCardTitle: "เวลานับถอยหลังต่อตา",
     timerLabel: "เวลาที่เหลือ:",
-    seconds: "วินาที",
+    seconds: "วิ",
     mandatoryJumpNotice: "มีจังหวะกิน! ต้องกินตามกติกา",
+    checkNotice: "รุก! (Check)",
 
     capturedHeader: "หมากที่ถูกกิน",
     capturedWhite: "หมากขาวถูกกิน:",
@@ -67,21 +81,35 @@ export const translations = {
 
     controlsHeader: "ปุ่มควบคุม",
     resignBtn: "ยอมแพ้",
-    restartBtn: "เริ่มเกมใหม่",
-    backToLobby: "← ออกสู่ล็อบบี้",
+    restartBtn: "เริ่มใหม่",
+    backToLobby: "← กลับสู่ล็อบบี้",
 
-    // Rules Details
-    ruleThaiDesc1: "• กระดาน 8x8 ฝ่ายละ 8 ตัว (สีขาวเดินก่อน)",
+    // Rules Details: Checkers
+    ruleThaiDesc1: "• กระดาน 8x8 ฝ่ายละ 8 ตัว (ขาวเริ่มก่อน)",
     ruleThaiDesc2: "• เบี้ยเดินและกินทแยงหน้า ก้าวละ 1 ช่อง",
-    ruleThaiDesc3: "• ฮอสบิน: เดินและกินได้ยาวตลอดแนวทแยงที่ไม่มีตัวขวาง และลงช่องว่างใดก็ได้หลังตัวที่กิน",
-    ruleThaiDesc4: "• มีจังหวะกินต้องกิน (Mandatory Jump) และกินต่อเนื่องได้",
-    ruleThaiDesc5: "• มีเวลานับถอยหลังต่อตา หากหมดเวลาปรับแพ้ทันที",
+    ruleThaiDesc3: "• ฮอสบิน: เดินและบินกินได้ยาวตลอดแนวทแยงที่ไม่มีตัวขวาง",
+    ruleThaiDesc4: "• มีจังหวะกินต้องกิน (Mandatory Jump)",
+    ruleThaiDesc5: "• นับถอยหลังต่อตา หากหมดเวลาปรับแพ้ทันที",
 
-    ruleIntDesc1: "• กระดาน 8x8 ฝ่ายละ 12 ตัว (สีขาวเดินก่อน)",
+    ruleIntDesc1: "• กระดาน 8x8 ฝ่ายละ 12 ตัว (ขาวเริ่มก่อน)",
     ruleIntDesc2: "• เบี้ยเดินและกินทแยงหน้า ก้าวละ 1 ช่อง",
     ruleIntDesc3: "• ฮอส: เดินและกินทแยงได้ทั้งหน้าและหลัง ก้าวละ 1 ช่อง",
-    ruleIntDesc4: "• มีจังหวะกินต้องกิน (Mandatory Jump) และกินต่อเนื่องได้",
-    ruleIntDesc5: "• มีเวลานับถอยหลังต่อตา หากหมดเวลาปรับแพ้ทันที",
+    ruleIntDesc4: "• มีจังหวะกินต้องกิน และกินต่อเนื่องได้",
+    ruleIntDesc5: "• นับถอยหลังต่อตา หากหมดเวลาปรับแพ้ทันที",
+
+    // Rules Details: Makruk (Thai Chess)
+    ruleMakrukDesc1: "• ฝ่ายละ 16 ตัว: ขุน, เม็ด, โคน(2), ม้า(2), เรือ(2), เบี้ย(8)",
+    ruleMakrukDesc2: "• ขุนเดิน 8 ทิศ, เม็ดเดินทแยง 1 ช่อง, โคนเดินหน้า 1 หรือทแยง 1",
+    ruleMakrukDesc3: "• ม้าเดินรูป L, เรือเดินตรงยาว, เบี้ยเดินหน้า กินทแยงหน้า",
+    ruleMakrukDesc4: "• เบี้ยถึงแถว 6 เลื่อนขั้นเป็นเบี้ยหงาย (เดินเหมือนเม็ด)",
+    ruleMakrukDesc5: "• ชนะเมื่อรุกฆาตขุน หรือฝ่ายตรงข้ามหมดเวลา",
+
+    // Rules Details: Western Chess
+    ruleWesternDesc1: "• ฝ่ายละ 16 ตัว: King, Queen, Rook(2), Bishop(2), Knight(2), Pawn(8)",
+    ruleWesternDesc2: "• Queen เดินได้ 8 ทิศไม่จำกัด, Rook เดินตรง, Bishop เดินทแยง",
+    ruleWesternDesc3: "• Knight เดินรูป L กระโดดข้ามตัวอื่นได้, King เดิน 1 ช่อง",
+    ruleWesternDesc4: "• Pawn เดินหน้า 1 ช่อง (ตาแรกเดินได้ 2) กินทแยงหน้า เลื่อนขั้นแถวสุดท้าย",
+    ruleWesternDesc5: "• ชนะเมื่อรุกฆาต (Checkmate) หรือฝ่ายตรงข้ามหมดเวลา",
 
     // Game Over & Dialogs
     gameOverTitle: "จบเกม!",
@@ -90,6 +118,8 @@ export const translations = {
     drawGame: "เสมอ!",
     reasonElimination: "หมากฝ่ายตรงข้ามหมดกระดาน",
     reasonBlocked: "ฝ่ายตรงข้ามไม่มีตาเดินเหลือ",
+    reasonCheckmate: "รุกฆาต! (Checkmate)",
+    reasonStalemate: "อับ! เสมอกัน (Stalemate)",
     reasonTimeout: "หมดเวลาในตาเดิน",
     reasonResign: "ฝ่ายตรงข้ามขอยอมแพ้",
     opponentDisconnected: "ฝ่ายตรงข้ามออกจากห้อง",
@@ -99,19 +129,31 @@ export const translations = {
   },
   en: {
     // Header
-    appTitle: "MINIMAL CHECKERS",
-    appSubtitle: "Monochrome Checkers",
+    appTitle: "MINIMAL BOARD GAMES",
+    appSubtitle: "Monochrome Checkers & Chess",
     soundOn: "Sound: ON",
     soundOff: "Sound: OFF",
     langTh: "ไทย",
     langEn: "EN",
 
-    // Rule Selection
+    // Game Category & Variant Selection
+    gameCategoryLabel: "Select Game Type:",
+    gameCheckersTab: "Checkers",
+    gameChessTab: "Chess",
     rulesSelectorLabel: "Select Rules Mode:",
-    ruleThai: "Thai Rules (8 pieces • Flying King)",
+
+    // Checkers Variants
+    ruleThai: "Thai Checkers (8 pieces • Flying King)",
     ruleInternational: "International (12 pieces • 1-step King)",
-    ruleThaiShort: "Thai Rules (Flying King)",
-    ruleIntShort: "International (12 pieces)",
+    ruleThaiShort: "Thai Checkers",
+    ruleIntShort: "International Checkers",
+
+    // Chess Variants
+    ruleMakruk: "Thai Chess / Makruk (Khon, Met, Ma, Ruea, Bia)",
+    ruleWesternChess: "Western Chess (Standard International)",
+    ruleMakrukShort: "Thai Chess (Makruk)",
+    ruleWesternShort: "Western Chess",
+
     currentRuleTitle: "Current Rules:",
     rulesHeader: "Rules Overview",
 
@@ -143,7 +185,7 @@ export const translations = {
     // Game Arena Sidebar
     matchVsBot: "Match vs BOT",
     spectatingBadge: "Spectator Mode (Live)",
-    playersHeader: "Players & Match",
+    playersHeader: "Players & Turn",
     playerWhite: "White Player",
     playerBlack: "Black Player",
     botName: "BOT",
@@ -154,8 +196,9 @@ export const translations = {
 
     timerCardTitle: "Turn Countdown",
     timerLabel: "Time left:",
-    seconds: "sec",
+    seconds: "s",
     mandatoryJumpNotice: "Capture available! Mandatory jump in effect",
+    checkNotice: "Check!",
 
     capturedHeader: "Captured Pieces",
     capturedWhite: "White captured:",
@@ -166,18 +209,32 @@ export const translations = {
     restartBtn: "Restart",
     backToLobby: "← Exit to Lobby",
 
-    // Rules Details
+    // Rules Details: Checkers
     ruleThaiDesc1: "• 8x8 board, 8 pieces each (White moves first)",
     ruleThaiDesc2: "• Men move & capture forward 1 diagonal step",
-    ruleThaiDesc3: "• Flying King: moves & captures any distance along diagonals, landing anywhere behind jumped piece",
-    ruleThaiDesc4: "• Captures are mandatory with continuous multi-jumps",
-    ruleThaiDesc5: "• Turn countdown enforced; expires to forfeit loss",
+    ruleThaiDesc3: "• Flying King: moves & captures any distance along diagonals",
+    ruleThaiDesc4: "• Captures are mandatory with multi-jumps",
+    ruleThaiDesc5: "• Turn timer enforced; expires to forfeit loss",
 
     ruleIntDesc1: "• 8x8 board, 12 pieces each (White moves first)",
     ruleIntDesc2: "• Men move & capture forward 1 diagonal step",
     ruleIntDesc3: "• King: moves & captures 1 step forward and backward",
-    ruleIntDesc4: "• Captures are mandatory with continuous multi-jumps",
-    ruleIntDesc5: "• Turn countdown enforced; expires to forfeit loss",
+    ruleIntDesc4: "• Captures are mandatory with multi-jumps",
+    ruleIntDesc5: "• Turn timer enforced; expires to forfeit loss",
+
+    // Rules Details: Makruk (Thai Chess)
+    ruleMakrukDesc1: "• 16 pieces each: King, Met, Khon(2), Knight(2), Rook(2), Bia(8)",
+    ruleMakrukDesc2: "• King: 8 dirs, Met: 1 diagonal, Khon: 1 forward or 1 diagonal",
+    ruleMakrukDesc3: "• Knight: L-shape, Rook: straight rays, Bia: moves fwd, takes diag",
+    ruleMakrukDesc4: "• Bia promotes to Bia-gai (like Met) at rank 6",
+    ruleMakrukDesc5: "• Win by checkmate or opponent timeout",
+
+    // Rules Details: Western Chess
+    ruleWesternDesc1: "• 16 pieces each: King, Queen, Rook(2), Bishop(2), Knight(2), Pawn(8)",
+    ruleWesternDesc2: "• Queen: 8 directions unlimited, Rook: orthogonals, Bishop: diagonals",
+    ruleWesternDesc3: "• Knight: L-shape leaps, King: 1 step any direction",
+    ruleWesternDesc4: "• Pawn: forward 1 (2 on 1st move), captures diag, promotes at back rank",
+    ruleWesternDesc5: "• Win by checkmate or opponent timeout",
 
     // Game Over & Dialogs
     gameOverTitle: "GAME OVER",
@@ -186,6 +243,8 @@ export const translations = {
     drawGame: "Draw Game!",
     reasonElimination: "All opponent pieces eliminated",
     reasonBlocked: "Opponent has no legal moves",
+    reasonCheckmate: "Checkmate!",
+    reasonStalemate: "Stalemate (Draw)",
     reasonTimeout: "Turn timer expired",
     reasonResign: "Opponent resigned",
     opponentDisconnected: "Opponent left the room",

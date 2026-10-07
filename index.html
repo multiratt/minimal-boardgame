@@ -3,19 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Minimal Checkers - หมากฮอสขาวดำ</title>
+  <title>Minimal Board Games - หมากฮอส & หมากรุกขาวดำ</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/animations.css">
+  <!-- Bundled local libraries for 100% offline & GitHub Pages support -->
   <script src="mqtt.min.js"></script>
+  <script src="chess.min.js"></script>
 </head>
 <body>
 
   <!-- App Header -->
   <header>
     <div class="brand">
-      <h1 data-i18n="appTitle">MINIMAL CHECKERS</h1>
-      <p data-i18n="appSubtitle">หมากฮอสขาว-ดำ มินิมอล</p>
+      <h1 data-i18n="appTitle">MINIMAL BOARD GAMES</h1>
+      <p data-i18n="appSubtitle">หมากฮอส & หมากรุก มินิมอลขาว-ดำ</p>
     </div>
     <div class="header-controls">
       <!-- Language Switcher -->
@@ -46,20 +48,41 @@
         <button id="save-name-btn" class="btn-secondary" data-i18n="saveName">บันทึกชื่อ</button>
       </div>
 
-      <!-- Rule Variant Selector Card -->
-      <div class="rule-selector-card">
-        <div class="card-title-row">
-          <h2 data-i18n="rulesSelectorLabel">เลือกกติกาการเล่น:</h2>
+      <!-- Game Category & Rule Selector -->
+      <div class="game-selector-card">
+        <div class="category-tabs">
+          <button id="tab-checkers" class="cat-tab active" data-category="checkers">
+            <span data-i18n="gameCheckersTab">หมากฮอส</span>
+          </button>
+          <button id="tab-chess" class="cat-tab" data-category="chess">
+            <span data-i18n="gameChessTab">หมากรุก</span>
+          </button>
         </div>
-        <div class="rule-options-group">
-          <button id="rule-thai-btn" class="rule-btn active" data-rule="thai">
-            <span class="rule-btn-title" data-i18n="ruleThai">กติกาไทย (8 ตัว • ฮอสบิน)</span>
-            <span class="rule-btn-sub" data-i18n="ruleThaiDesc3">ฮอสเดินและกินได้ยาวตลอดแนวทแยง</span>
-          </button>
-          <button id="rule-int-btn" class="rule-btn" data-rule="international">
-            <span class="rule-btn-title" data-i18n="ruleInternational">กติกาสากล (12 ตัว • ฮอส 1 ก้าว)</span>
-            <span class="rule-btn-sub" data-i18n="ruleIntDesc3">ฮอสเดินและกินทแยงหน้า-หลัง ก้าวละ 1 ช่อง</span>
-          </button>
+
+        <div class="rule-selector-container">
+          <!-- Checkers Options -->
+          <div id="checkers-options" class="rule-options-group">
+            <button id="rule-thai-btn" class="rule-btn active" data-mode="checkers_thai">
+              <span class="rule-btn-title" data-i18n="ruleThai">กติกาไทย (8 ตัว • ฮอสบิน)</span>
+              <span class="rule-btn-sub" data-i18n="ruleThaiDesc3">ฮอสเดินและบินกินได้ยาวตลอดแนวทแยง</span>
+            </button>
+            <button id="rule-int-btn" class="rule-btn" data-mode="checkers_international">
+              <span class="rule-btn-title" data-i18n="ruleInternational">กติกาสากล (12 ตัว • ฮอส 1 ก้าว)</span>
+              <span class="rule-btn-sub" data-i18n="ruleIntDesc3">ฮอสเดินและกินทแยงหน้า-หลัง ก้าวละ 1 ช่อง</span>
+            </button>
+          </div>
+
+          <!-- Chess Options -->
+          <div id="chess-options" class="rule-options-group view-hidden">
+            <button id="rule-makruk-btn" class="rule-btn" data-mode="chess_makruk">
+              <span class="rule-btn-title" data-i18n="ruleMakruk">หมากรุกไทย (ขุน, เม็ด, โคน, ม้า, เรือ, เบี้ย)</span>
+              <span class="rule-btn-sub" data-i18n="ruleMakrukDesc4">เบี้ยหงายแถว 6, ขุน, เม็ด, โคน ตามกติกาไทยดั้งเดิม</span>
+            </button>
+            <button id="rule-western-btn" class="rule-btn" data-mode="chess_western">
+              <span class="rule-btn-title" data-i18n="ruleWesternChess">หมากรุกสากล (King, Queen, Rook, Bishop, Knight, Pawn)</span>
+              <span class="rule-btn-sub" data-i18n="ruleWesternDesc2">Queen 8 ทิศ, เข้าป้อม, เลื่อนขั้นเบี้ยมาตรฐานสากล</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -90,20 +113,20 @@
       </div>
     </section>
 
-    <!-- 2. GAME ARENA VIEW (SIDE-BY-SIDE LAYOUT) -->
+    <!-- 2. GAME ARENA VIEW (100% VIEWPORT FIT DASHBOARD) -->
     <section id="game-view" class="game-view view-hidden">
-      <div class="game-layout">
+      <div class="game-fit-layout">
 
-        <!-- Left Column: The Board -->
-        <div class="board-column">
-          <div class="board-top-status">
-            <span id="match-info-title" class="match-title-text"></span>
-            <div id="mandatory-notice" class="mandatory-notice-banner view-hidden" data-i18n="mandatoryJumpNotice">
+        <!-- Left/Center Column: High-Res Scaled Board -->
+        <div class="board-column-fit">
+          <div class="board-header-bar">
+            <span id="match-info-title" class="match-info-badge"></span>
+            <div id="mandatory-notice" class="notice-pill view-hidden" data-i18n="mandatoryJumpNotice">
               มีจังหวะกิน! ต้องกินตามกติกา
             </div>
           </div>
 
-          <div class="board-wrapper">
+          <div class="board-wrapper-fit">
             <div id="board-container" class="board-container">
               <!-- 64 cells generated by JS -->
             </div>
@@ -111,12 +134,12 @@
         </div>
 
         <!-- Right Column: Sidebar (Turn, Countdown, Captured, Controls, Rules) -->
-        <aside class="game-sidebar">
+        <aside class="sidebar-fit">
 
           <!-- Card 1: Player Info & Turn Status -->
           <div class="sidebar-card player-turn-card">
             <div class="card-header">
-              <span data-i18n="playersHeader">ผู้เล่นและการแข่งขัน</span>
+              <span data-i18n="playersHeader">ผู้เล่น & ตาเดิน</span>
             </div>
             <div class="players-list">
               <div id="white-player-box" class="player-box active-turn-ring">
@@ -146,7 +169,7 @@
             </div>
             <div class="digital-timer-display">
               <span id="timer-seconds" class="timer-big-num">30</span>
-              <span class="timer-unit" data-i18n="seconds">วินาที</span>
+              <span class="timer-unit" data-i18n="seconds">วิ</span>
             </div>
             <div class="timer-bar-bg">
               <div id="timer-bar-fill" class="timer-bar-fill"></div>
@@ -177,19 +200,19 @@
             </div>
             <div class="controls-actions">
               <button id="resign-game-btn" class="btn-secondary" data-i18n="resignBtn">ยอมแพ้</button>
-              <button id="restart-game-btn" class="btn-secondary" data-i18n="restartBtn">เริ่มเกมใหม่</button>
-              <button id="exit-lobby-btn" class="btn-action" data-i18n="backToLobby">← ออกสู่ล็อบบี้</button>
+              <button id="restart-game-btn" class="btn-secondary" data-i18n="restartBtn">เริ่มใหม่</button>
+              <button id="exit-lobby-btn" class="btn-action" data-i18n="backToLobby">← กลับสู่ล็อบบี้</button>
             </div>
           </div>
 
-          <!-- Card 5: Current Rules Panel -->
+          <!-- Card 5: Compact Active Rules Panel -->
           <div class="sidebar-card rules-card">
             <div class="card-header">
-              <span data-i18n="rulesHeader">สรุปกติกาการเล่น</span>
+              <span data-i18n="rulesHeader">กติกาการเล่น</span>
               <span id="current-rule-badge" class="rule-badge-pill">กติกาไทย</span>
             </div>
             <div id="sidebar-rules-list" class="rules-detail-list">
-              <!-- Dynamically rendered according to Thai or International mode -->
+              <!-- Dynamically populated based on active game and rule mode -->
             </div>
           </div>
 
@@ -211,13 +234,6 @@
       </div>
     </div>
   </div>
-
-  <!-- Minimal Footer -->
-  <footer>
-    <div style="opacity: 0.6; font-size: 0.75rem;">
-      Minimal Checkers © 2026 • 100% Client-Side on GitHub Pages
-    </div>
-  </footer>
 
   <script type="module" src="js/app.js"></script>
 </body>
