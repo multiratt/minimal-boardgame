@@ -220,6 +220,11 @@ class BoardGameApp {
       pauseWaitingModal: document.getElementById("pause-waiting-modal"),
       cancelPauseBtn: document.getElementById("cancel-pause-btn"),
 
+      // Confirm Exit DOM elements
+      confirmExitModal: document.getElementById("confirm-exit-modal"),
+      confirmExitBtn: document.getElementById("confirm-exit-btn"),
+      cancelExitBtn: document.getElementById("cancel-exit-btn"),
+
       langThBtn: document.getElementById("lang-th-btn"),
       langEnBtn: document.getElementById("lang-en-btn"),
       soundBtn: document.getElementById("sound-btn"),
@@ -290,7 +295,21 @@ class BoardGameApp {
       this.renderLobbyRooms(this.network.roomsState);
     });
 
-    this.dom.exitLobbyBtn.addEventListener("click", () => this.exitToLobby());
+    this.dom.exitLobbyBtn.addEventListener("click", () => this.handleExitLobbyClick());
+    if (this.dom.confirmExitBtn) {
+      this.dom.confirmExitBtn.addEventListener("click", () => this.handleConfirmExit());
+    }
+    if (this.dom.cancelExitBtn) {
+      this.dom.cancelExitBtn.addEventListener("click", () => this.handleCancelExit());
+    }
+    if (this.dom.confirmExitModal) {
+      this.dom.confirmExitModal.addEventListener("click", (e) => {
+        if (e.target === this.dom.confirmExitModal) {
+          this.handleCancelExit();
+        }
+      });
+    }
+
     this.dom.resignGameBtn.addEventListener("click", () => {
       if (this.isGameOver || this.role === "spectator" || !this.isMatchActive()) return;
       this.handleResign(this.myColor);
@@ -447,6 +466,11 @@ class BoardGameApp {
     this.updatePieceCounts();
     this.renderSidebarRules();
     this.renderLobbyRooms(this.network.roomsState);
+    if (this.mode === "bot") {
+      this.updateBotPlayerNames();
+    } else if (this.mode === "online") {
+      this.updateOnlinePlayerNames(this.network.roomsState[this.network.currentRoomId]);
+    }
     if (this.isEndgameCountdownActive) {
       this.dom.endgameTurnBadge.textContent = t("endgameCountdownBadge").replace("{n}", this.endgameMovesRemaining);
     }
@@ -561,12 +585,16 @@ class BoardGameApp {
     this.role = "player1";
     this.updateMatchTitle();
 
-    const playerName = this.network.getNickname() || t("defaultPlayerName");
-    this.dom.whitePlayerName.textContent = playerName;
-    this.dom.blackPlayerName.textContent = `${t("botName")} (${t(`diff${this.botDifficulty.charAt(0).toUpperCase() + this.botDifficulty.slice(1)}`)})`;
+    this.updateBotPlayerNames();
 
     this.showGameView();
     this.resetGameRound();
+  }
+
+  updateBotPlayerNames() {
+    const playerName = this.network.getNickname() || t("defaultPlayerName");
+    this.dom.whitePlayerName.textContent = `${playerName} (${t("youLabel")})`;
+    this.dom.blackPlayerName.textContent = `${t("botName")} (${t(`diff${this.botDifficulty.charAt(0).toUpperCase() + this.botDifficulty.slice(1)}`)})`;
   }
 
   joinOnlineRoom(roomId, asSpectator = false) {
@@ -629,8 +657,17 @@ class BoardGameApp {
   }
 
   updateOnlinePlayerNames(room) {
-    const p1 = room && room.p1 ? room.p1.name : t("playerWhite");
-    const p2 = room && room.p2 ? room.p2.name : (this.role === "spectator" ? t("playerBlack") : t("waitingOpponentJoin"));
+    let p1 = room && room.p1 ? room.p1.name : t("playerWhite");
+    let p2 = room && room.p2 ? room.p2.name : (this.role === "spectator" ? t("playerBlack") : t("waitingOpponentJoin"));
+
+    if (this.role === "player1") {
+      p1 = `${p1} (${t("youLabel")})`;
+    } else if (this.role === "player2") {
+      if (room && room.p2) {
+        p2 = `${p2} (${t("youLabel")})`;
+      }
+    }
+
     this.dom.whitePlayerName.textContent = p1;
     this.dom.blackPlayerName.textContent = p2;
   }
@@ -681,10 +718,48 @@ class BoardGameApp {
     this.renderSidebarRules();
   }
 
+  handleExitLobbyClick() {
+    if (!this.isGameOver && this.isMatchActive() && this.role !== "spectator") {
+      if (this.dom.confirmExitModal) {
+        this.dom.confirmExitModal.classList.remove("view-hidden");
+      }
+      return;
+    }
+    this.exitToLobby();
+  }
+
+  handleConfirmExit() {
+    if (this.dom.confirmExitModal) {
+      this.dom.confirmExitModal.classList.add("view-hidden");
+    }
+
+    if (!this.isGameOver && this.isMatchActive() && this.role !== "spectator") {
+      const winningColor = this.myColor === WHITE ? BLACK : WHITE;
+      if (this.mode === "online") {
+        this.network.sendResign(this.myColor);
+      }
+      this.endGame(winningColor, "resign");
+    }
+
+    this.exitToLobby();
+  }
+
+  handleCancelExit() {
+    if (this.dom.confirmExitModal) {
+      this.dom.confirmExitModal.classList.add("view-hidden");
+    }
+  }
+
   exitToLobby() {
     this.stopTurnTimer();
     this.clearDisconnectCountdown();
     this.clearPauseSession();
+    if (this.dom.confirmExitModal) {
+      this.dom.confirmExitModal.classList.add("view-hidden");
+    }
+    if (this.dom.gameOverModal) {
+      this.dom.gameOverModal.classList.add("view-hidden");
+    }
     if (this.mode === "online") {
       this.network.leaveCurrentRoom();
     }
@@ -1400,6 +1475,7 @@ class BoardGameApp {
     if (this.dom.pauseModal) this.dom.pauseModal.classList.add("view-hidden");
     if (this.dom.pauseWaitingModal) this.dom.pauseWaitingModal.classList.add("view-hidden");
     if (this.dom.pauseRequestModal) this.dom.pauseRequestModal.classList.add("view-hidden");
+    if (this.dom.confirmExitModal) this.dom.confirmExitModal.classList.add("view-hidden");
   }
 
   handlePauseClick() {

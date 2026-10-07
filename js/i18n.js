@@ -166,7 +166,14 @@ export const translations = {
     declineBtn: "ปฏิเสธ",
     cancelBtn: "ยกเลิกคำขอ",
     pauseAutoResumeNotice: "หมดเวลาพัก 3 นาที เริ่มเล่นต่ออัตโนมัติ!",
-    pauseDeclinedNotice: "คู่ต่อสู้ปฏิเสธการขอพักเกม"
+    pauseDeclinedNotice: "คู่ต่อสู้ปฏิเสธการขอพักเกม",
+
+    // You indicator & Confirm Exit
+    youLabel: "คุณ",
+    confirmExitTitle: "⚠️ ออกจากห้องเล่นเกม",
+    confirmExitDesc: "การออกจากห้องระหว่างแข่งขัน จะถือว่าคุณยอมแพ้ในเกมนี้",
+    confirmExitForfeitBtn: "ยอมแพ้และกลับล็อบบี้",
+    cancelExitBtn: "เล่นต่อ"
   },
   en: {
     // Header
@@ -332,7 +339,14 @@ export const translations = {
     declineBtn: "Decline",
     cancelBtn: "Cancel",
     pauseAutoResumeNotice: "3-minute pause expired. Resuming game automatically!",
-    pauseDeclinedNotice: "Opponent declined pause request"
+    pauseDeclinedNotice: "Opponent declined pause request",
+
+    // You indicator & Confirm Exit
+    youLabel: "You",
+    confirmExitTitle: "⚠️ Exit to Lobby",
+    confirmExitDesc: "Exiting during an active match will count as a forfeit (Resign).",
+    confirmExitForfeitBtn: "Resign & Exit",
+    cancelExitBtn: "Stay & Play"
   }
 };
 
