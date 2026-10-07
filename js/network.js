@@ -12,7 +12,17 @@ const BROKERS = [
 
 export class NetworkManager {
   constructor() {
-    this.clientId = "user_" + Math.random().toString(36).substring(2, 9);
+    let storedId = null;
+    try {
+      storedId = sessionStorage.getItem("board_game_client_id");
+      if (!storedId) {
+        storedId = "user_" + Math.random().toString(36).substring(2, 9);
+        sessionStorage.setItem("board_game_client_id", storedId);
+      }
+    } catch (e) {
+      storedId = "user_" + Math.random().toString(36).substring(2, 9);
+    }
+    this.clientId = storedId;
     this.nickname = localStorage.getItem("checkers_nickname") || "";
     this.currentRoomId = null;
     this.role = null; // "player1" | "player2" | "spectator"
@@ -42,6 +52,10 @@ export class NetworkManager {
     this.onGameResigned = null;
     this.onGameRestarted = null;
     this.onOpponentLeft = null;
+    this.onOpponentConnectionChanged = null; // (isConnected: boolean) => void
+
+    this.lastOpponentPing = 0;
+    this.isOpponentConnected = true;
 
     this.heartbeatInterval = null;
     this.initBroadcastChannel();
@@ -232,9 +246,29 @@ export class NetworkManager {
         this.onLobbyUpdated(this.roomsState);
       }
 
-      // 2. If sitting in a room as a player, send periodic heartbeat
+      // 2. If sitting in a room as a player, send periodic heartbeat to lobby & ping in room
       if (this.currentRoomId && (this.role === "player1" || this.role === "player2")) {
         this.sendRoomHeartbeat();
+        
+        // Send ping within the room to keep live connection alive
+        this.broadcast(ROOM_TOPIC_PREFIX + this.currentRoomId, {
+          type: "ROOM_PING",
+          senderId: this.clientId,
+          roomId: this.currentRoomId
+        });
+
+        const currentRoom = this.roomsState[this.currentRoomId];
+        // If match is active, check if opponent stopped responding
+        if (currentRoom && currentRoom.status === "playing" && this.lastOpponentPing > 0) {
+          if (now - this.lastOpponentPing > 4500) {
+            if (this.isOpponentConnected) {
+              this.isOpponentConnected = false;
+              if (this.onOpponentConnectionChanged) {
+                this.onOpponentConnectionChanged(false);
+              }
+            }
+          }
+        }
       }
 
       // 3. If in lobby, query occasionally
@@ -259,10 +293,16 @@ export class NetworkManager {
         room.spectators = room.spectatorList.length;
       }
     } else {
-      if (!room.p1) {
+      if (room.p1 && room.p1.id === this.clientId) {
+        this.role = "player1";
+        room.p1.name = this.getNickname();
+      } else if (room.p2 && room.p2.id === this.clientId) {
+        this.role = "player2";
+        room.p2.name = this.getNickname();
+      } else if (!room.p1) {
         this.role = "player1";
         room.p1 = { id: this.clientId, name: this.getNickname() };
-        room.status = "waiting";
+        room.status = room.p2 ? "playing" : "waiting";
       } else if (!room.p2 && room.p1.id !== this.clientId) {
         this.role = "player2";
         room.p2 = { id: this.clientId, name: this.getNickname() };
@@ -274,6 +314,11 @@ export class NetworkManager {
           room.spectators = room.spectatorList.length;
         }
       }
+    }
+
+    if (room.status === "playing" || (room.p1 && room.p2)) {
+      this.lastOpponentPing = Date.now();
+      this.isOpponentConnected = true;
     }
 
     // Broadcast JOIN event inside the room
@@ -300,6 +345,9 @@ export class NetworkManager {
 
     const roomId = this.currentRoomId;
     const room = this.roomsState[roomId];
+
+    this.lastOpponentPing = 0;
+    this.isOpponentConnected = true;
 
     this.broadcast(ROOM_TOPIC_PREFIX + roomId, {
       type: "ROOM_LEAVE",
@@ -398,9 +446,25 @@ export class NetworkManager {
 
     const room = this.roomsState[roomId];
 
+    if (senderId && senderId !== this.clientId) {
+      this.lastOpponentPing = Date.now();
+      if (!this.isOpponentConnected) {
+        this.isOpponentConnected = true;
+        if (this.onOpponentConnectionChanged) {
+          this.onOpponentConnectionChanged(true);
+        }
+      }
+    }
+
     switch (type) {
+      case "ROOM_PING":
+        break;
+
       case "ROOM_JOIN":
-        if (msg.role === "player2" || (!room.p2 && msg.role !== "spectator")) {
+        if (msg.role === "player1") {
+          room.p1 = { id: senderId, name: senderName };
+          if (room.p2) room.status = "playing";
+        } else if (msg.role === "player2" || (!room.p2 && msg.role !== "spectator")) {
           room.p2 = { id: senderId, name: senderName };
           room.status = "playing";
         } else if (msg.role === "spectator") {
@@ -443,14 +507,25 @@ export class NetworkManager {
         break;
 
       case "ROOM_LEAVE":
-        if (room.p1 && room.p1.id === senderId) {
-          room.p1 = room.p2;
-          room.p2 = null;
-          room.status = room.p1 ? "waiting" : "empty";
-        } else if (room.p2 && room.p2.id === senderId) {
-          room.p2 = null;
-          room.status = room.p1 ? "waiting" : "empty";
-        } else {
+        if (senderId !== this.clientId) {
+          this.isOpponentConnected = false;
+          if (this.onOpponentConnectionChanged) {
+            this.onOpponentConnectionChanged(false);
+          }
+        }
+
+        if (room.status !== "playing") {
+          if (room.p1 && room.p1.id === senderId) {
+            room.p1 = room.p2;
+            room.p2 = null;
+            room.status = room.p1 ? "waiting" : "empty";
+          } else if (room.p2 && room.p2.id === senderId) {
+            room.p2 = null;
+            room.status = room.p1 ? "waiting" : "empty";
+          }
+        }
+
+        if (room.spectatorList) {
           room.spectatorList = room.spectatorList.filter(id => id !== senderId);
           room.spectators = room.spectatorList.length;
         }

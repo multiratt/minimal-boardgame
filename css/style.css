@@ -554,6 +554,13 @@ main {
   animation: urgentTick 1.4s infinite ease-in-out;
 }
 
+.notice-pill.notice-danger {
+  background-color: #3b1414 !important;
+  color: #ff6b6b !important;
+  border-color: #782929 !important;
+  animation: urgentTick 0.85s infinite ease-in-out !important;
+}
+
 .endgame-turn-pill {
   font-size: 0.72rem;
   font-weight: 700;
@@ -672,30 +679,25 @@ main {
   border-color: rgba(0, 0, 0, 0.15);
 }
 
-.king-crown {
-  width: 50%;
-  height: 50%;
+/* Standard International Vector Pieces (Zero Text) */
+.piece-svg {
+  width: 72%;
+  height: 72%;
+  display: block;
+  pointer-events: none;
+  position: relative;
+  z-index: 12;
+}
+
+.crown-svg {
+  width: 52%;
+  height: 52%;
   fill: currentColor;
-  position: relative;
-  z-index: 12;
 }
 
-/* Makruk & Western Chess Piece Labels / Badges */
-.piece-text-badge {
-  font-size: 0.82rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  position: relative;
-  z-index: 12;
-  text-align: center;
-  line-height: 1;
-}
-
-.piece-symbol-badge {
-  font-size: 1.45rem;
-  line-height: 1;
-  position: relative;
-  z-index: 12;
+.chess-svg {
+  width: 74%;
+  height: 74%;
 }
 
 /* --- RIGHT COLUMN: SIDEBAR (FIT IN VIEWPORT) --- */
@@ -923,19 +925,179 @@ main {
   justify-content: center;
 }
 
-/* Media query for screens with very small height */
-@media (max-height: 600px) {
+/* Touch optimization */
+button, .square, .piece, .rule-btn, .lang-btn, .icon-btn, .diff-btn {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ==========================================================================
+   RESPONSIVE LAYOUT SYSTEM (ALL DEVICES)
+   ========================================================================== */
+
+/* Tablets & Mobile Phones (Portrait / Narrow Screens) */
+@media (max-width: 900px) {
+  html, body {
+    height: auto;
+    min-height: 100vh;
+    max-height: none;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
   header {
-    height: 40px;
+    padding: 0 0.85rem;
   }
+
+  .brand h1 {
+    font-size: 0.92rem;
+  }
+
+  .brand p {
+    display: none;
+  }
+
   main {
-    height: calc(100vh - 40px);
+    height: auto;
+    min-height: calc(100vh - 48px);
+    max-height: none;
+    overflow: visible;
+    padding: 0.5rem 0.5rem 2.5rem 0.5rem;
   }
+
+  .lobby-view {
+    height: auto;
+    overflow: visible;
+    padding-bottom: 2rem;
+  }
+
+  .rooms-grid {
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  }
+
+  .game-view {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+    display: block;
+  }
+
+  .game-fit-layout {
+    flex-direction: column;
+    height: auto;
+    max-height: none;
+    gap: 0.75rem;
+    align-items: center;
+  }
+
+  .board-column-fit {
+    height: auto;
+    width: 100%;
+    max-width: min(94vw, 480px);
+    flex: none;
+    margin: 0 auto;
+  }
+
+  .board-header-bar {
+    max-width: 100%;
+    margin-bottom: 0.2rem;
+  }
+
   .board-container {
-    height: min(calc(100vh - 70px), calc(100vw - 340px));
-    width: min(calc(100vh - 70px), calc(100vw - 340px));
+    width: min(94vw, 480px);
+    height: min(94vw, 480px);
+    max-width: 480px;
+    max-height: 480px;
   }
+
   .sidebar-fit {
-    height: min(calc(100vh - 70px), 600px);
+    width: min(94vw, 480px);
+    height: auto;
+    max-height: none;
+    overflow: visible;
+    gap: 0.5rem;
+    margin: 0.5rem auto 1.5rem auto;
+  }
+
+  .rules-detail-list {
+    max-height: 150px;
+    overflow-y: auto;
+  }
+}
+
+/* Mobile Landscape & Short Height Screens */
+@media (max-height: 560px) and (min-width: 600px) {
+  html, body {
+    height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
+  }
+
+  header {
+    height: 38px;
+    padding: 0 0.75rem;
+  }
+
+  .brand p {
+    display: none;
+  }
+
+  main {
+    height: calc(100vh - 38px);
+    max-height: calc(100vh - 38px);
+    padding: 0.25rem 0.5rem;
+    overflow: hidden;
+  }
+
+  .game-fit-layout {
+    flex-direction: row;
+    gap: 0.75rem;
+    align-items: center;
+    height: 100%;
+  }
+
+  .board-container {
+    height: min(calc(100vh - 75px), 48vw);
+    width: min(calc(100vh - 75px), 48vw);
+  }
+
+  .sidebar-fit {
+    width: min(44vw, 300px);
+    height: min(calc(100vh - 75px), 480px);
+    overflow-y: auto;
+  }
+}
+
+/* Very Small Mobile Screens (320px - 380px) */
+@media (max-width: 380px) {
+  header {
+    padding: 0 0.5rem;
+  }
+
+  .brand h1 {
+    font-size: 0.82rem;
+  }
+
+  .header-controls {
+    gap: 0.35rem;
+  }
+
+  .lang-btn {
+    padding: 0.2rem 0.45rem;
+    font-size: 0.68rem;
+  }
+
+  .icon-btn {
+    padding: 0.22rem 0.5rem;
+    font-size: 0.68rem;
+  }
+
+  .board-container {
+    width: 95vw;
+    height: 95vw;
+  }
+
+  .sidebar-fit {
+    width: 95vw;
   }
 }

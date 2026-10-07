@@ -53,29 +53,7 @@ import {
   playVictory
 } from "./sfx.js";
 
-const CROWN_SVG = `
-<svg class="king-crown" viewBox="0 0 24 24">
-  <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z"/>
-</svg>`;
-
-const MAKRUK_SYMBOLS = {
-  k: "ขุน",
-  m: "เม็ด",
-  s: "โคน",
-  n: "ม้า",
-  r: "เรือ",
-  p: "เบี้ย",
-  pm: "หงาย"
-};
-
-const CHESS_SYMBOLS = {
-  k: "♚",
-  q: "♛",
-  r: "♜",
-  b: "♝",
-  n: "♞",
-  p: "♟"
-};
+import { getPieceSVG } from "./pieces-svg.js";
 
 class BoardGameApp {
   constructor() {
@@ -102,6 +80,10 @@ class BoardGameApp {
     this.turnTimeLimit = 30;
     this.timeRemaining = 30;
     this.timerInterval = null;
+
+    // Online disconnect countdown state (60s grace period)
+    this.disconnectCountdownTimer = null;
+    this.disconnectSecondsLeft = 60;
 
     // Captured counts
     this.capturedWhite = 0;
@@ -213,8 +195,9 @@ class BoardGameApp {
   isMatchActive() {
     if (this.mode === "bot") return true;
     if (this.mode === "online") {
+      if (this.disconnectCountdownTimer) return true;
       const room = this.network.roomsState[this.network.currentRoomId];
-      return room && room.p1 && room.p2;
+      return !!(room && (room.status === "playing" || (room.p1 && room.p2)));
     }
     return true;
   }
@@ -302,7 +285,19 @@ class BoardGameApp {
       this.resetGameRound();
     };
     this.network.onOpponentLeft = () => {
-      if (!this.isGameOver) this.endGame(this.myColor, "opponent_left");
+      if (!this.isGameOver && this.isMatchActive()) {
+        this.handleOpponentDisconnected();
+      }
+    };
+    this.network.onOpponentConnectionChanged = (isConnected) => {
+      if (this.mode !== "online" || this.isGameOver || this.role === "spectator") return;
+      if (!isConnected) {
+        if (this.isMatchActive()) {
+          this.handleOpponentDisconnected();
+        }
+      } else {
+        this.handleOpponentReconnected();
+      }
     };
   }
 
@@ -390,6 +385,9 @@ class BoardGameApp {
     this.renderLobbyRooms(this.network.roomsState);
     if (this.isEndgameCountdownActive) {
       this.dom.endgameTurnBadge.textContent = t("endgameCountdownBadge").replace("{n}", this.endgameMovesRemaining);
+    }
+    if (this.disconnectCountdownTimer) {
+      this.updateDisconnectNotice();
     }
   }
 
@@ -566,6 +564,7 @@ class BoardGameApp {
 
   exitToLobby() {
     this.stopTurnTimer();
+    this.clearDisconnectCountdown();
     if (this.mode === "online") {
       this.network.leaveCurrentRoom();
     }
@@ -575,6 +574,7 @@ class BoardGameApp {
   }
 
   resetGameRound() {
+    this.clearDisconnectCountdown();
     this.turn = WHITE;
     this.selectedSquare = null;
     this.legalMovesForSelected = [];
@@ -655,16 +655,7 @@ class BoardGameApp {
         pieceEl.className = `piece ${piece.color === WHITE ? "piece-white" : "piece-black"}`;
         pieceEl.dataset.id = piece.id;
 
-        if (this.modeIsCheckers()) {
-          if (piece.isKing) pieceEl.innerHTML = CROWN_SVG;
-        } else if (this.activeMode === "chess_makruk") {
-          const label = MAKRUK_SYMBOLS[piece.type] || piece.type;
-          pieceEl.innerHTML = `<span class="piece-text-badge">${label}</span>`;
-        } else if (this.activeMode === "chess_western") {
-          const sym = CHESS_SYMBOLS[piece.type] || piece.type;
-          pieceEl.innerHTML = `<span class="piece-symbol-badge">${sym}</span>`;
-        }
-
+        pieceEl.innerHTML = getPieceSVG(this.activeMode, piece);
         sq.appendChild(pieceEl);
       }
     }
@@ -1079,9 +1070,65 @@ class BoardGameApp {
     this.endGame(winningColor, "resign");
   }
 
+  handleOpponentDisconnected() {
+    if (this.isGameOver || this.mode !== "online" || this.role === "spectator") return;
+    if (this.disconnectCountdownTimer) return;
+
+    this.stopTurnTimer();
+    this.disconnectSecondsLeft = 60;
+    this.updateDisconnectNotice();
+
+    this.disconnectCountdownTimer = setInterval(() => {
+      this.disconnectSecondsLeft--;
+      this.updateDisconnectNotice();
+
+      if (this.disconnectSecondsLeft <= 0) {
+        this.clearDisconnectCountdown();
+        this.endGame(this.myColor, "disconnect_timeout");
+      }
+    }, 1000);
+  }
+
+  updateDisconnectNotice() {
+    const msg = t("opponentDisconnectCountdown").replace("{n}", Math.max(0, this.disconnectSecondsLeft));
+    this.dom.mandatoryNotice.textContent = msg;
+    this.dom.mandatoryNotice.classList.remove("view-hidden");
+    this.dom.mandatoryNotice.classList.add("notice-danger");
+  }
+
+  clearDisconnectCountdown() {
+    if (this.disconnectCountdownTimer) {
+      clearInterval(this.disconnectCountdownTimer);
+      this.disconnectCountdownTimer = null;
+    }
+    this.dom.mandatoryNotice.classList.remove("notice-danger");
+  }
+
+  handleOpponentReconnected() {
+    if (this.disconnectCountdownTimer) {
+      this.clearDisconnectCountdown();
+      this.dom.mandatoryNotice.textContent = t("opponentReconnectedMsg");
+      this.dom.mandatoryNotice.classList.remove("view-hidden");
+      setTimeout(() => {
+        if (!this.disconnectCountdownTimer) {
+          this.dom.mandatoryNotice.classList.add("view-hidden");
+        }
+      }, 2500);
+
+      if (this.role === "player1") {
+        this.network.sendSyncState(this.board, this.turn, this.timeRemaining);
+      }
+
+      if (this.isMatchActive() && !this.isGameOver) {
+        this.startTurnTimer();
+      }
+    }
+  }
+
   endGame(winner, reason) {
     this.isGameOver = true;
     this.stopTurnTimer();
+    this.clearDisconnectCountdown();
     playVictory();
 
     let winnerText = winner === WHITE ? t("winnerWhite") : t("winnerBlack");
@@ -1099,6 +1146,7 @@ class BoardGameApp {
       case "turn_limit_white": reasonText = t("reasonTurnLimitWhite"); break;
       case "turn_limit_black": reasonText = t("reasonTurnLimitBlack"); break;
       case "turn_limit_draw": reasonText = t("reasonTurnLimitDraw"); break;
+      case "disconnect_timeout": reasonText = t("reasonDisconnectTimeout"); break;
       case "opponent_left": reasonText = t("opponentDisconnected"); break;
       default: reasonText = "";
     }
