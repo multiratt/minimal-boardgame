@@ -56,6 +56,15 @@ export class NetworkManager {
     this.onOpponentLeft = null;
     this.onOpponentConnectionChanged = null; // (isConnected: boolean) => void
 
+    // UNO Multiplayer Callbacks
+    this.onUnoStart = null;
+    this.onUnoMove = null;
+    this.onUnoDraw = null;
+    this.onUnoPass = null;
+    this.onUnoShout = null;
+    this.onUnoSync = null;
+    this.onUnoWaitingUpdate = null;
+
     this.lastOpponentPing = 0;
     this.isOpponentConnected = true;
 
@@ -293,34 +302,67 @@ export class NetworkManager {
       room.mode = gameMode;
     }
 
-    if (asSpectator) {
-      this.role = "spectator";
-      if (!room.spectatorList.includes(this.clientId)) {
-        room.spectatorList.push(this.clientId);
-        room.spectators = room.spectatorList.length;
-      }
-    } else {
-      if (room.p1 && room.p1.id === this.clientId) {
-        this.role = "player1";
-        room.p1.name = this.getNickname();
-        if (gameMode && !room.mode) room.mode = gameMode;
-      } else if (room.p2 && room.p2.id === this.clientId) {
-        this.role = "player2";
-        room.p2.name = this.getNickname();
-      } else if (!room.p1) {
-        this.role = "player1";
-        room.p1 = { id: this.clientId, name: this.getNickname() };
-        room.status = room.p2 ? "playing" : "waiting";
-        if (gameMode) room.mode = gameMode;
-      } else if (!room.p2 && room.p1.id !== this.clientId) {
-        this.role = "player2";
-        room.p2 = { id: this.clientId, name: this.getNickname() };
-        room.status = "playing";
-      } else {
+    const isUno = (room.mode && room.mode.startsWith("uno")) || (gameMode && gameMode.startsWith("uno"));
+
+    if (isUno) {
+      if (!room.players) room.players = [];
+      if (asSpectator) {
         this.role = "spectator";
         if (!room.spectatorList.includes(this.clientId)) {
           room.spectatorList.push(this.clientId);
           room.spectators = room.spectatorList.length;
+        }
+      } else {
+        const existingIdx = room.players.findIndex(p => p.id === this.clientId);
+        if (existingIdx !== -1) {
+          room.players[existingIdx].name = this.getNickname();
+          this.role = room.players[existingIdx].isHost ? "player1" : ("player" + (existingIdx + 1));
+        } else if (room.status !== "playing" && room.players.length < 8) {
+          const isHost = room.players.length === 0;
+          const pObj = { id: this.clientId, name: this.getNickname(), isHost, cardCount: 7 };
+          room.players.push(pObj);
+          this.role = isHost ? "player1" : ("player" + room.players.length);
+          room.p1 = room.players[0];
+          room.p2 = room.players[1] || null;
+          room.status = "waiting";
+        } else {
+          this.role = "spectator";
+          if (!room.spectatorList.includes(this.clientId)) {
+            room.spectatorList.push(this.clientId);
+            room.spectators = room.spectatorList.length;
+          }
+        }
+      }
+    } else {
+      if (asSpectator) {
+        this.role = "spectator";
+        if (!room.spectatorList.includes(this.clientId)) {
+          room.spectatorList.push(this.clientId);
+          room.spectators = room.spectatorList.length;
+        }
+      } else {
+        if (room.p1 && room.p1.id === this.clientId) {
+          this.role = "player1";
+          room.p1.name = this.getNickname();
+          if (gameMode && !room.mode) room.mode = gameMode;
+        } else if (room.p2 && room.p2.id === this.clientId) {
+          this.role = "player2";
+          room.p2.name = this.getNickname();
+        } else if (!room.p1) {
+          this.role = "player1";
+          room.p1 = { id: this.clientId, name: this.getNickname() };
+          room.status = room.p2 ? "playing" : "waiting";
+          if (gameMode) room.mode = gameMode;
+        } else if (!room.p2 && room.p1.id !== this.clientId) {
+          this.role = "player2";
+          room.p2 = { id: this.clientId, name: this.getNickname() };
+          room.status = "playing";
+        } else {
+          this.role = "spectator";
+          if (!room.spectatorList.includes(this.clientId)) {
+            room.spectatorList.push(this.clientId);
+            room.spectators = room.spectatorList.length;
+          }
         }
       }
     }
@@ -337,7 +379,8 @@ export class NetworkManager {
       senderName: this.getNickname(),
       roomId,
       role: this.role,
-      mode: room.mode || gameMode
+      mode: room.mode || gameMode,
+      players: room.players || null
     });
 
     // IMMEDIATELY broadcast updated room state to Lobby so other machines see it in 0ms!
@@ -367,21 +410,47 @@ export class NetworkManager {
       role: this.role
     });
 
-    if (this.role === "player1") {
-      if (room.p2) {
-        room.p1 = room.p2;
-        room.p2 = null;
-        room.status = "waiting";
-      } else {
-        room.p1 = null;
-        room.status = "empty";
-        room.mode = null;
+    const isUno = room.mode && room.mode.startsWith("uno");
+
+    if (isUno && room.players) {
+      const pIdx = room.players.findIndex(p => p.id === this.clientId);
+      if (pIdx !== -1) {
+        const wasHost = room.players[pIdx].isHost;
+        room.players.splice(pIdx, 1);
+        if (room.players.length > 0) {
+          if (wasHost) {
+            const nextHost = room.players.find(p => !p.isBot) || room.players[0];
+            nextHost.isHost = true;
+          }
+          room.p1 = room.players[0];
+          room.p2 = room.players[1] || null;
+        } else {
+          room.status = "empty";
+          room.mode = null;
+          room.p1 = null;
+          room.p2 = null;
+          room.players = [];
+        }
       }
-    } else if (this.role === "player2") {
-      room.p2 = null;
-      room.status = room.p1 ? "waiting" : "empty";
-      if (!room.p1) room.mode = null;
-    } else if (this.role === "spectator") {
+    } else {
+      if (this.role === "player1") {
+        if (room.p2) {
+          room.p1 = room.p2;
+          room.p2 = null;
+          room.status = "waiting";
+        } else {
+          room.p1 = null;
+          room.status = "empty";
+          room.mode = null;
+        }
+      } else if (this.role === "player2") {
+        room.p2 = null;
+        room.status = room.p1 ? "waiting" : "empty";
+        if (!room.p1) room.mode = null;
+      }
+    }
+
+    if (this.role === "spectator") {
       room.spectatorList = room.spectatorList.filter(id => id !== this.clientId);
       room.spectators = room.spectatorList.length;
     }
@@ -487,6 +556,90 @@ export class NetworkManager {
     });
   }
 
+  // --- UNO Multiplayer Methods ---
+  sendUnoWaitingUpdate(players) {
+    if (!this.currentRoomId) return;
+    const room = this.roomsState[this.currentRoomId];
+    if (room) {
+      room.players = players;
+      room.p1 = players[0] || null;
+      room.p2 = players[1] || null;
+    }
+    this.broadcast(ROOM_TOPIC_PREFIX + this.currentRoomId, {
+      type: "UNO_WAITING_UPDATE",
+      senderId: this.clientId,
+      roomId: this.currentRoomId,
+      players
+    });
+    this.sendRoomHeartbeat();
+  }
+
+  sendUnoStart(gameState) {
+    if (!this.currentRoomId) return;
+    const room = this.roomsState[this.currentRoomId];
+    if (room) {
+      room.status = "playing";
+    }
+    this.broadcast(ROOM_TOPIC_PREFIX + this.currentRoomId, {
+      type: "UNO_START",
+      senderId: this.clientId,
+      roomId: this.currentRoomId,
+      gameState
+    });
+    this.sendRoomHeartbeat();
+  }
+
+  sendUnoMove(data) {
+    if (!this.currentRoomId) return;
+    this.broadcast(ROOM_TOPIC_PREFIX + this.currentRoomId, {
+      type: "UNO_MOVE",
+      senderId: this.clientId,
+      roomId: this.currentRoomId,
+      ...data
+    });
+  }
+
+  sendUnoDraw(data) {
+    if (!this.currentRoomId) return;
+    this.broadcast(ROOM_TOPIC_PREFIX + this.currentRoomId, {
+      type: "UNO_DRAW",
+      senderId: this.clientId,
+      roomId: this.currentRoomId,
+      ...data
+    });
+  }
+
+  sendUnoPass(data) {
+    if (!this.currentRoomId) return;
+    this.broadcast(ROOM_TOPIC_PREFIX + this.currentRoomId, {
+      type: "UNO_PASS",
+      senderId: this.clientId,
+      roomId: this.currentRoomId,
+      ...data
+    });
+  }
+
+  sendUnoShout(playerId, playerName) {
+    if (!this.currentRoomId) return;
+    this.broadcast(ROOM_TOPIC_PREFIX + this.currentRoomId, {
+      type: "UNO_SHOUT",
+      senderId: this.clientId,
+      roomId: this.currentRoomId,
+      playerId,
+      playerName
+    });
+  }
+
+  sendUnoSync(gameState) {
+    if (!this.currentRoomId) return;
+    this.broadcast(ROOM_TOPIC_PREFIX + this.currentRoomId, {
+      type: "UNO_SYNC",
+      senderId: this.clientId,
+      roomId: this.currentRoomId,
+      gameState
+    });
+  }
+
   handleRoomMessage(msg) {
     const { type, roomId, senderId, senderName } = msg;
     if (roomId !== this.currentRoomId) return;
@@ -511,13 +664,35 @@ export class NetworkManager {
         if (msg.mode && !room.mode) {
           room.mode = msg.mode;
         }
-        if (msg.role === "player1") {
-          room.p1 = { id: senderId, name: senderName };
-          if (room.p2) room.status = "playing";
-        } else if (msg.role === "player2" || (!room.p2 && msg.role !== "spectator")) {
-          room.p2 = { id: senderId, name: senderName };
-          room.status = "playing";
-        } else if (msg.role === "spectator") {
+        if (room.mode && room.mode.startsWith("uno")) {
+          if (!room.players) room.players = [];
+          if (msg.role !== "spectator") {
+            const exists = room.players.find(p => p.id === senderId);
+            if (!exists) {
+              room.players.push({
+                id: senderId,
+                name: senderName,
+                isHost: room.players.length === 0,
+                cardCount: 7
+              });
+            }
+            room.p1 = room.players[0] || null;
+            room.p2 = room.players[1] || null;
+            // If I am host, respond with latest full player list
+            if (this.role === "player1" && room.players[0]?.id === this.clientId) {
+              this.sendUnoWaitingUpdate(room.players);
+            }
+          }
+        } else {
+          if (msg.role === "player1") {
+            room.p1 = { id: senderId, name: senderName };
+            if (room.p2) room.status = "playing";
+          } else if (msg.role === "player2" || (!room.p2 && msg.role !== "spectator")) {
+            room.p2 = { id: senderId, name: senderName };
+            room.status = "playing";
+          }
+        }
+        if (msg.role === "spectator") {
           if (!room.spectatorList.includes(senderId)) {
             room.spectatorList.push(senderId);
             room.spectators = room.spectatorList.length;
@@ -526,6 +701,54 @@ export class NetworkManager {
         this.sendRoomHeartbeat();
         if (this.onRoomStateChanged) {
           this.onRoomStateChanged(room, "join", { senderId, senderName, role: msg.role, mode: msg.mode || room.mode });
+        }
+        break;
+
+      case "UNO_WAITING_UPDATE":
+        if (msg.players) {
+          room.players = msg.players;
+          room.p1 = room.players[0] || null;
+          room.p2 = room.players[1] || null;
+        }
+        if (this.onUnoWaitingUpdate) {
+          this.onUnoWaitingUpdate(msg.players);
+        }
+        break;
+
+      case "UNO_START":
+        room.status = "playing";
+        if (this.onUnoStart) {
+          this.onUnoStart(msg.gameState);
+        }
+        break;
+
+      case "UNO_MOVE":
+        if (this.onUnoMove) {
+          this.onUnoMove(msg);
+        }
+        break;
+
+      case "UNO_DRAW":
+        if (this.onUnoDraw) {
+          this.onUnoDraw(msg);
+        }
+        break;
+
+      case "UNO_PASS":
+        if (this.onUnoPass) {
+          this.onUnoPass(msg);
+        }
+        break;
+
+      case "UNO_SHOUT":
+        if (this.onUnoShout) {
+          this.onUnoShout(msg);
+        }
+        break;
+
+      case "UNO_SYNC":
+        if (this.onUnoSync) {
+          this.onUnoSync(msg.gameState);
         }
         break;
 

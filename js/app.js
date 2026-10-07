@@ -44,6 +44,23 @@ import {
   countOthelloPieces
 } from "./rules-othello.js";
 
+import {
+  SUITS,
+  SUIT_SYMBOLS,
+  ACTION_SYMBOLS,
+  RULE_UNO_STANDARD,
+  RULE_UNO_STACKING,
+  setupUnoGame,
+  isCardPlayable,
+  getPlayableCards,
+  playUnoCard,
+  drawCardsToPlayer,
+  passUnoTurn,
+  challengeUno,
+  shoutUno,
+  getAIUnoAction
+} from "./rules-uno.js";
+
 import { NetworkManager, MAX_ROOMS } from "./network.js";
 import {
   t,
@@ -68,11 +85,28 @@ class BoardGameApp {
   constructor() {
     this.network = new NetworkManager();
 
-    // Mode: "checkers_thai" | "checkers_international" | "chess_makruk" | "chess_western" | "othello"
+    // Mode: "checkers_thai" | "checkers_international" | "chess_makruk" | "chess_western" | "othello" | "uno_standard" | "uno_stacking"
     this.activeMode = localStorage.getItem("board_game_mode") || "checkers_thai";
-    this.activeCategory = this.activeMode.startsWith("chess") ? "chess" : (this.activeMode === "othello" ? "othello" : "checkers");
+    if (this.activeMode.startsWith("chess")) {
+      this.activeCategory = "chess";
+    } else if (this.activeMode === "othello") {
+      this.activeCategory = "othello";
+    } else if (this.activeMode.startsWith("uno")) {
+      this.activeCategory = "uno";
+    } else {
+      this.activeCategory = "checkers";
+    }
     this.botDifficulty = "medium";
     this.botColor = BLACK;
+
+    // UNO Game State
+    this.unoBotCount = 3; // 1 to 7 bots (total 2 to 8 players)
+    this.unoState = null;
+    this.unoPlayers = [];
+    this.myUnoIndex = 0;
+    this.pendingWildCardId = null;
+    this.hasDrawnThisTurn = false;
+    this.unoWaitingRoomId = null;
 
     // Board state
     this.board = null;
@@ -170,15 +204,50 @@ class BoardGameApp {
       tabCheckers: document.getElementById("tab-checkers"),
       tabChess: document.getElementById("tab-chess"),
       tabOthello: document.getElementById("tab-othello"),
+      tabUno: document.getElementById("tab-uno"),
       checkersOptions: document.getElementById("checkers-options"),
       chessOptions: document.getElementById("chess-options"),
       othelloOptions: document.getElementById("othello-options"),
+      unoOptions: document.getElementById("uno-options"),
       ruleThaiBtn: document.getElementById("rule-thai-btn"),
       ruleIntBtn: document.getElementById("rule-int-btn"),
       ruleMakrukBtn: document.getElementById("rule-makruk-btn"),
       ruleWesternBtn: document.getElementById("rule-western-btn"),
       ruleOthelloBtn: document.getElementById("rule-othello-btn"),
+      ruleUnoStandardBtn: document.getElementById("rule-uno-standard-btn"),
+      ruleUnoStackingBtn: document.getElementById("rule-uno-stacking-btn"),
+      unoBotCountSelector: document.getElementById("uno-bot-count-selector"),
+      unoBotMinusBtn: document.getElementById("uno-bot-minus-btn"),
+      unoBotPlusBtn: document.getElementById("uno-bot-plus-btn"),
+      unoBotCountDisplay: document.getElementById("uno-bot-count-display"),
       capturedCard: document.querySelector(".captured-card"),
+
+      // UNO Table Layout DOM elements
+      unoTableContainer: document.getElementById("uno-table-container"),
+      unoOpponentsArea: document.getElementById("uno-opponents-area"),
+      unoDrawPile: document.getElementById("uno-draw-pile"),
+      unoDrawCountLabel: document.getElementById("uno-draw-count-label"),
+      unoDirectionBadge: document.getElementById("uno-direction-badge"),
+      unoActiveSuitPill: document.getElementById("uno-active-suit-pill"),
+      unoActiveSuitSym: document.getElementById("uno-active-suit-sym"),
+      unoActiveSuitName: document.getElementById("uno-active-suit-name"),
+      unoStackPill: document.getElementById("uno-stack-pill"),
+      unoDiscardPile: document.getElementById("uno-discard-pile"),
+      unoHandContainer: document.getElementById("uno-hand-container"),
+      unoActionDrawBtn: document.getElementById("uno-action-draw-btn"),
+      unoActionPassBtn: document.getElementById("uno-action-pass-btn"),
+      unoShoutBtn: document.getElementById("uno-shout-btn"),
+
+      // UNO Modals
+      unoSuitModal: document.getElementById("uno-suit-modal"),
+      unoWaitingModal: document.getElementById("uno-waiting-modal"),
+      unoWaitingPlayersList: document.getElementById("uno-waiting-players-list"),
+      unoHostControls: document.getElementById("uno-host-controls"),
+      unoStartMatchBtn: document.getElementById("uno-start-match-btn"),
+      unoAddBotRoomBtn: document.getElementById("uno-add-bot-room-btn"),
+      unoRemoveBotRoomBtn: document.getElementById("uno-remove-bot-room-btn"),
+      unoWaitingNotice: document.getElementById("uno-waiting-notice"),
+      unoLeaveWaitingBtn: document.getElementById("uno-leave-waiting-btn"),
 
       startBotBtn: document.getElementById("start-bot-btn"),
       diffBtns: document.querySelectorAll(".diff-btn"),
@@ -251,11 +320,19 @@ class BoardGameApp {
     return this.activeMode.startsWith("checkers");
   }
 
+  modeIsUno() {
+    return this.activeMode.startsWith("uno");
+  }
+
   isMatchActive() {
     if (this.mode === "bot") return true;
     if (this.mode === "online") {
       if (this.disconnectCountdownTimer) return true;
       const room = this.network.roomsState[this.network.currentRoomId];
+      if (!room) return false;
+      if (this.modeIsUno()) {
+        return room.status === "playing";
+      }
       return !!(room && (room.status === "playing" || (room.p1 && room.p2)));
     }
     return true;
@@ -282,6 +359,10 @@ class BoardGameApp {
       this.dom.tabOthello.addEventListener("click", () => this.setCategory("othello"));
     }
 
+    if (this.dom.tabUno) {
+      this.dom.tabUno.addEventListener("click", () => this.setCategory("uno"));
+    }
+
     this.dom.ruleThaiBtn.addEventListener("click", () => this.setMode("checkers_thai"));
     this.dom.ruleIntBtn.addEventListener("click", () => this.setMode("checkers_international"));
     this.dom.ruleMakrukBtn.addEventListener("click", () => this.setMode("chess_makruk"));
@@ -289,6 +370,63 @@ class BoardGameApp {
     if (this.dom.ruleOthelloBtn) {
       this.dom.ruleOthelloBtn.addEventListener("click", () => this.setMode("othello"));
     }
+
+    if (this.dom.ruleUnoStandardBtn) {
+      this.dom.ruleUnoStandardBtn.addEventListener("click", () => this.setMode("uno_standard"));
+    }
+    if (this.dom.ruleUnoStackingBtn) {
+      this.dom.ruleUnoStackingBtn.addEventListener("click", () => this.setMode("uno_stacking"));
+    }
+
+    if (this.dom.unoBotMinusBtn) {
+      this.dom.unoBotMinusBtn.addEventListener("click", () => this.changeUnoBotCount(-1));
+    }
+    if (this.dom.unoBotPlusBtn) {
+      this.dom.unoBotPlusBtn.addEventListener("click", () => this.changeUnoBotCount(1));
+    }
+
+    if (this.dom.unoDrawPile) {
+      this.dom.unoDrawPile.addEventListener("click", () => this.handlePlayerDrawUnoCard());
+    }
+    if (this.dom.unoActionDrawBtn) {
+      this.dom.unoActionDrawBtn.addEventListener("click", () => this.handlePlayerDrawUnoCard());
+    }
+    if (this.dom.unoActionPassBtn) {
+      this.dom.unoActionPassBtn.addEventListener("click", () => this.handlePlayerPassUnoTurn());
+    }
+    if (this.dom.unoShoutBtn) {
+      this.dom.unoShoutBtn.addEventListener("click", () => this.handlePlayerShoutUno());
+    }
+
+    if (this.dom.unoSuitModal) {
+      this.dom.unoSuitModal.querySelectorAll(".uno-suit-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const suit = btn.getAttribute("data-suit");
+          this.handleSelectWildSuit(suit);
+        });
+      });
+    }
+
+    if (this.dom.unoStartMatchBtn) {
+      this.dom.unoStartMatchBtn.addEventListener("click", () => this.handleHostStartUnoMatch());
+    }
+    if (this.dom.unoAddBotRoomBtn) {
+      this.dom.unoAddBotRoomBtn.addEventListener("click", () => this.handleHostAddUnoBot());
+    }
+    if (this.dom.unoRemoveBotRoomBtn) {
+      this.dom.unoRemoveBotRoomBtn.addEventListener("click", () => this.handleHostRemoveUnoBot());
+    }
+    if (this.dom.unoLeaveWaitingBtn) {
+      this.dom.unoLeaveWaitingBtn.addEventListener("click", () => this.handleLeaveUnoWaitingRoom());
+    }
+
+    // UNO Network Callbacks
+    this.network.onUnoWaitingUpdate = (players) => this.handleUnoWaitingUpdate(players);
+    this.network.onUnoStart = (gameState) => this.handleUnoStartReceived(gameState);
+    this.network.onUnoMove = (data) => this.handleUnoMoveReceived(data);
+    this.network.onUnoDraw = (data) => this.handleUnoDrawReceived(data);
+    this.network.onUnoPass = (data) => this.handleUnoPassReceived(data);
+    this.network.onUnoShout = (data) => this.handleUnoShoutReceived(data);
 
     this.dom.saveNameBtn.addEventListener("click", () => {
       const name = this.dom.nicknameInput.value.trim();
@@ -406,26 +544,39 @@ class BoardGameApp {
 
   setCategory(category) {
     this.activeCategory = category;
-    [this.dom.tabCheckers, this.dom.tabChess, this.dom.tabOthello].forEach(t => t && t.classList.remove("active"));
-    [this.dom.checkersOptions, this.dom.chessOptions, this.dom.othelloOptions].forEach(o => o && o.classList.add("view-hidden"));
+    [this.dom.tabCheckers, this.dom.tabChess, this.dom.tabOthello, this.dom.tabUno].forEach(t => t && t.classList.remove("active"));
+    [this.dom.checkersOptions, this.dom.chessOptions, this.dom.othelloOptions, this.dom.unoOptions].forEach(o => o && o.classList.add("view-hidden"));
 
     if (category === "checkers") {
       if (this.dom.tabCheckers) this.dom.tabCheckers.classList.add("active");
       if (this.dom.checkersOptions) this.dom.checkersOptions.classList.remove("view-hidden");
+      if (this.dom.unoBotCountSelector) this.dom.unoBotCountSelector.classList.add("view-hidden");
       if (!this.activeMode.startsWith("checkers")) {
         this.setMode("checkers_thai");
       }
     } else if (category === "chess") {
       if (this.dom.tabChess) this.dom.tabChess.classList.add("active");
       if (this.dom.chessOptions) this.dom.chessOptions.classList.remove("view-hidden");
+      if (this.dom.unoBotCountSelector) this.dom.unoBotCountSelector.classList.add("view-hidden");
       if (!this.activeMode.startsWith("chess")) {
         this.setMode("chess_makruk");
       }
     } else if (category === "othello") {
       if (this.dom.tabOthello) this.dom.tabOthello.classList.add("active");
       if (this.dom.othelloOptions) this.dom.othelloOptions.classList.remove("view-hidden");
+      if (this.dom.unoBotCountSelector) this.dom.unoBotCountSelector.classList.add("view-hidden");
       if (this.activeMode !== "othello") {
         this.setMode("othello");
+      }
+    } else if (category === "uno") {
+      if (this.dom.tabUno) this.dom.tabUno.classList.add("active");
+      if (this.dom.unoOptions) this.dom.unoOptions.classList.remove("view-hidden");
+      if (this.dom.unoBotCountSelector) {
+        this.dom.unoBotCountSelector.classList.remove("view-hidden");
+        this.updateUnoBotCountDisplay();
+      }
+      if (!this.activeMode.startsWith("uno")) {
+        this.setMode("uno_standard");
       }
     }
   }
@@ -441,7 +592,7 @@ class BoardGameApp {
   }
 
   updateModeButtonsUI() {
-    [this.dom.ruleThaiBtn, this.dom.ruleIntBtn, this.dom.ruleMakrukBtn, this.dom.ruleWesternBtn, this.dom.ruleOthelloBtn].forEach(b => {
+    [this.dom.ruleThaiBtn, this.dom.ruleIntBtn, this.dom.ruleMakrukBtn, this.dom.ruleWesternBtn, this.dom.ruleOthelloBtn, this.dom.ruleUnoStandardBtn, this.dom.ruleUnoStackingBtn].forEach(b => {
       if (b) b.classList.remove("active");
     });
 
@@ -450,6 +601,8 @@ class BoardGameApp {
     else if (this.activeMode === "chess_makruk") this.dom.ruleMakrukBtn.classList.add("active");
     else if (this.activeMode === "chess_western") this.dom.ruleWesternBtn.classList.add("active");
     else if (this.activeMode === "othello" && this.dom.ruleOthelloBtn) this.dom.ruleOthelloBtn.classList.add("active");
+    else if (this.activeMode === "uno_standard" && this.dom.ruleUnoStandardBtn) this.dom.ruleUnoStandardBtn.classList.add("active");
+    else if (this.activeMode === "uno_stacking" && this.dom.ruleUnoStackingBtn) this.dom.ruleUnoStackingBtn.classList.add("active");
 
     this.renderSidebarRules();
   }
@@ -479,10 +632,18 @@ class BoardGameApp {
         badgeText = t("ruleOthelloShort");
         rules = [t("ruleOthelloDesc1"), t("ruleOthelloDesc2"), t("ruleOthelloDesc3"), t("ruleOthelloDesc4"), t("ruleOthelloDesc5")];
         break;
+      case "uno_standard":
+        badgeText = t("ruleUnoShort") + " (Standard)";
+        rules = [t("ruleUnoDesc1"), t("ruleUnoDesc2"), t("ruleUnoStandardDesc"), t("ruleUnoDesc3"), t("ruleUnoDesc4"), t("ruleUnoDesc5")];
+        break;
+      case "uno_stacking":
+        badgeText = t("ruleUnoShort") + " (Stacking)";
+        rules = [t("ruleUnoDesc1"), t("ruleUnoDesc2"), t("ruleUnoStackingDesc"), t("ruleUnoDesc3"), t("ruleUnoDesc4"), t("ruleUnoDesc5")];
+        break;
     }
 
-    // Add Stalling rule only to piece capture games (not Othello)
-    if (this.activeMode !== "othello") {
+    // Add Stalling rule only to piece capture games (not Othello or UNO)
+    if (this.activeMode !== "othello" && !this.modeIsUno()) {
       rules.push(t("endgameRuleDesc"));
     }
 
@@ -536,6 +697,10 @@ class BoardGameApp {
         return { icon: "👑", name: t("ruleWesternShort"), isEmpty: false };
       case "othello":
         return { icon: "🔘", name: t("ruleOthelloShort"), isEmpty: false };
+      case "uno_standard":
+        return { icon: "🎴", name: t("ruleUnoStandard"), isEmpty: false };
+      case "uno_stacking":
+        return { icon: "⚡", name: t("ruleUnoStacking"), isEmpty: false };
       default:
         return { icon: "🎲", name: mode, isEmpty: false };
     }
@@ -554,7 +719,12 @@ class BoardGameApp {
       let statusText = t("roomEmpty");
       if (room.status === "waiting") {
         statusBadgeClass = "badge-waiting";
-        statusText = t("roomWaiting");
+        const pCount = (room.players && room.players.length > 0) ? room.players.length : (room.p1 ? 1 : 0);
+        if (room.mode && room.mode.startsWith("uno")) {
+          statusText = `${t("roomWaiting")} (${pCount}/8)`;
+        } else {
+          statusText = t("roomWaiting");
+        }
       } else if (room.status === "playing") {
         statusBadgeClass = "badge-playing";
         statusText = t("roomPlaying");
@@ -574,14 +744,23 @@ class BoardGameApp {
           <span class="mode-label">${modeInfo.name}</span>
         </div>
         <div class="room-players">
-          <div class="player-slot">
-            <span class="player-dot dot-white"></span>
-            <span>${p1Name}</span>
-          </div>
-          <div class="player-slot">
-            <span class="player-dot dot-black"></span>
-            <span>${p2Name}</span>
-          </div>
+          ${room.mode && room.mode.startsWith("uno") && room.players && room.players.length > 0 ? `
+            <div class="player-slot" style="grid-column: 1 / -1; font-size: 0.76rem;">
+              <span class="player-dot dot-white"></span>
+              <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                ${room.players.map(p => `${p.isHost ? '👑' : (p.isBot ? '🤖' : '👤')} ${p.name}`).join(' • ')}
+              </span>
+            </div>
+          ` : `
+            <div class="player-slot">
+              <span class="player-dot dot-white"></span>
+              <span>${p1Name}</span>
+            </div>
+            <div class="player-slot">
+              <span class="player-dot dot-black"></span>
+              <span>${p2Name}</span>
+            </div>
+          `}
         </div>
         <div class="room-footer">
           <span class="spectator-count">${t("spectatorLabel")} ${room.spectators || 0} ${t("spectatorsCount")}</span>
@@ -614,6 +793,28 @@ class BoardGameApp {
 
   // --- START GAME ---
   startBotGame() {
+    if (this.modeIsUno()) {
+      this.mode = "bot";
+      this.role = "player1";
+      const totalPlayers = 1 + this.unoBotCount;
+      const myName = this.network.getNickname() || t("defaultPlayerName");
+      this.unoPlayers = [
+        { id: this.network.clientId, name: `${myName}`, isBot: false, isHost: true }
+      ];
+      for (let i = 1; i <= this.unoBotCount; i++) {
+        this.unoPlayers.push({
+          id: `bot_${i}`,
+          name: `BOT ${i}`,
+          isBot: true,
+          isHost: false
+        });
+      }
+      this.myUnoIndex = 0;
+      const unoState = setupUnoGame(totalPlayers, this.activeMode);
+      this.startUnoGameWithState({ unoState, unoPlayers: this.unoPlayers });
+      return;
+    }
+
     this.mode = "bot";
     if (this.activeMode === "othello") {
       this.myColor = BLACK;
@@ -651,13 +852,36 @@ class BoardGameApp {
     if (existingRoom && existingRoom.mode) {
       this.activeMode = existingRoom.mode;
       localStorage.setItem("board_game_mode", this.activeMode);
-      this.activeCategory = this.activeMode.startsWith("chess") ? "chess" : (this.activeMode === "othello" ? "othello" : "checkers");
+      if (this.activeMode.startsWith("chess")) {
+        this.activeCategory = "chess";
+      } else if (this.activeMode === "othello") {
+        this.activeCategory = "othello";
+      } else if (this.activeMode.startsWith("uno")) {
+        this.activeCategory = "uno";
+      } else {
+        this.activeCategory = "checkers";
+      }
       this.updateCategoryTabsUI();
       this.updateModeButtonsUI();
     }
 
     const res = this.network.joinRoom(roomId, asSpectator, this.activeMode);
     this.role = res.role;
+
+    if (this.modeIsUno()) {
+      if (res.roomState.status === "playing") {
+        this.unoPlayers = res.roomState.players || [];
+        this.myUnoIndex = this.unoPlayers.findIndex(p => p.id === this.network.clientId);
+        if (this.myUnoIndex === -1) this.myUnoIndex = this.role === "spectator" ? -1 : 0;
+        this.showGameView();
+        this.updateMatchTitle(roomId);
+        return;
+      }
+
+      this.unoWaitingRoomId = roomId;
+      this.showUnoWaitingModal(res.roomState);
+      return;
+    }
 
     if (this.activeMode === "othello") {
       if (this.role === "player1") this.myColor = BLACK;
@@ -700,6 +924,8 @@ class BoardGameApp {
       case "chess_makruk": modeLabel = t("ruleMakrukShort"); break;
       case "chess_western": modeLabel = t("ruleWesternShort"); break;
       case "othello": modeLabel = t("ruleOthelloShort"); break;
+      case "uno_standard": modeLabel = t("ruleUnoShort") + " (Standard)"; break;
+      case "uno_stacking": modeLabel = t("ruleUnoShort") + " (Stacking)"; break;
     }
 
     if (this.mode === "bot") {
@@ -785,6 +1011,21 @@ class BoardGameApp {
   showGameView() {
     this.dom.lobbyView.classList.add("view-hidden");
     this.dom.gameView.classList.remove("view-hidden");
+
+    if (this.modeIsUno()) {
+      if (this.dom.boardContainer) this.dom.boardContainer.classList.add("view-hidden");
+      if (this.dom.unoTableContainer) this.dom.unoTableContainer.classList.remove("view-hidden");
+      if (this.dom.capturedCard) this.dom.capturedCard.classList.add("view-hidden");
+      if (this.dom.mandatoryNotice) this.dom.mandatoryNotice.classList.add("view-hidden");
+    } else {
+      if (this.dom.boardContainer) this.dom.boardContainer.classList.remove("view-hidden");
+      if (this.dom.unoTableContainer) this.dom.unoTableContainer.classList.add("view-hidden");
+      if (this.dom.capturedCard) {
+        if (this.activeMode === "othello") this.dom.capturedCard.classList.add("view-hidden");
+        else this.dom.capturedCard.classList.remove("view-hidden");
+      }
+    }
+
     this.renderSidebarRules();
   }
 
@@ -824,11 +1065,21 @@ class BoardGameApp {
     this.stopTurnTimer();
     this.clearDisconnectCountdown();
     this.clearPauseSession();
+    if (this.botTimeout) {
+      clearTimeout(this.botTimeout);
+      this.botTimeout = null;
+    }
     if (this.dom.confirmExitModal) {
       this.dom.confirmExitModal.classList.add("view-hidden");
     }
     if (this.dom.gameOverModal) {
       this.dom.gameOverModal.classList.add("view-hidden");
+    }
+    if (this.dom.unoWaitingModal) {
+      this.dom.unoWaitingModal.classList.add("view-hidden");
+    }
+    if (this.dom.unoSuitModal) {
+      this.dom.unoSuitModal.classList.add("view-hidden");
     }
     if (this.mode === "online") {
       this.network.leaveCurrentRoom();
@@ -1498,6 +1749,13 @@ class BoardGameApp {
 
   handleTimeout() {
     if (this.isGameOver || !this.isMatchActive()) return;
+    if (this.modeIsUno()) {
+      if (this.unoState && this.unoState.currentTurn === this.myUnoIndex) {
+        this.handlePlayerDrawUnoCard();
+        this.handlePlayerPassUnoTurn();
+      }
+      return;
+    }
     const losingPlayer = this.turn;
     const winningPlayer = losingPlayer === WHITE ? BLACK : WHITE;
     this.endGame(winningPlayer, "timeout");
@@ -1839,6 +2097,591 @@ class BoardGameApp {
     if (this.mode === "bot" && this.turn === this.botColor && !this.isGameOver) {
       this.triggerBotTurn();
     }
+  }
+
+  // ==========================================
+  // --- UNO GAMEPLAY & MULTIPLAYER METHODS ---
+  // ==========================================
+
+  changeUnoBotCount(delta) {
+    this.unoBotCount = Math.max(1, Math.min(7, this.unoBotCount + delta));
+    this.updateUnoBotCountDisplay();
+  }
+
+  updateUnoBotCountDisplay() {
+    if (this.dom.unoBotCountDisplay) {
+      this.dom.unoBotCountDisplay.textContent = t("unoBotCountFmt")
+        .replace("{n}", this.unoBotCount)
+        .replace("{total}", this.unoBotCount + 1);
+    }
+  }
+
+  showUnoWaitingModal(room) {
+    if (this.dom.unoWaitingModal) {
+      this.dom.unoWaitingModal.classList.remove("view-hidden");
+      this.renderUnoWaitingRoom(room);
+    }
+  }
+
+  renderUnoWaitingRoom(room) {
+    const players = (room && room.players) ? room.players : (this.network.roomsState[this.network.currentRoomId]?.players || []);
+    if (!this.dom.unoWaitingPlayersList) return;
+
+    this.dom.unoWaitingPlayersList.innerHTML = "";
+    const isHost = players.length > 0 && players[0].id === this.network.clientId;
+
+    if (isHost) {
+      if (this.dom.unoHostControls) this.dom.unoHostControls.classList.remove("view-hidden");
+      if (this.dom.unoWaitingNotice) this.dom.unoWaitingNotice.classList.add("view-hidden");
+    } else {
+      if (this.dom.unoHostControls) this.dom.unoHostControls.classList.add("view-hidden");
+      if (this.dom.unoWaitingNotice) this.dom.unoWaitingNotice.classList.remove("view-hidden");
+    }
+
+    players.forEach((p, idx) => {
+      const row = document.createElement("div");
+      row.className = `uno-waiting-player-row ${p.isHost ? 'is-host' : ''}`;
+      const isYou = p.id === this.network.clientId;
+      row.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <span>${p.isBot ? '🤖' : '👤'}</span>
+          <strong>${p.name}</strong>
+          ${isYou ? `<span style="font-size: 0.72rem; color: var(--accent-white); font-weight: 700;">(${t("youLabel")})</span>` : ''}
+        </div>
+        <div>
+          ${p.isHost ? `<span style="font-size: 0.72rem; background: rgba(255,255,255,0.15); padding: 0.15rem 0.45rem; border-radius: 6px;">👑 Host</span>` : `<span style="font-size: 0.72rem; color: var(--text-muted);">P${idx + 1}</span>`}
+        </div>
+      `;
+      this.dom.unoWaitingPlayersList.appendChild(row);
+    });
+  }
+
+  handleHostStartUnoMatch() {
+    const room = this.network.roomsState[this.network.currentRoomId];
+    if (!room || !room.players || room.players.length < 2) {
+      alert("ต้องการผู้เล่นอย่างน้อย 2 คน (กด + เพิ่มบอท ได้)");
+      return;
+    }
+
+    const unoState = setupUnoGame(room.players.length, room.mode || this.activeMode);
+    const gameState = {
+      unoState,
+      unoPlayers: room.players
+    };
+
+    this.network.sendUnoStart(gameState);
+    if (this.dom.unoWaitingModal) this.dom.unoWaitingModal.classList.add("view-hidden");
+    this.startUnoGameWithState(gameState);
+  }
+
+  handleHostAddUnoBot() {
+    const room = this.network.roomsState[this.network.currentRoomId];
+    if (!room) return;
+    if (!room.players) room.players = [];
+    if (room.players.length >= 8) return;
+
+    const botNum = room.players.filter(p => p.isBot).length + 1;
+    const botObj = {
+      id: "bot_" + Math.random().toString(36).substring(2, 7),
+      name: `BOT ${botNum}`,
+      isBot: true,
+      isHost: false,
+      cardCount: 7
+    };
+    room.players.push(botObj);
+    this.network.sendUnoWaitingUpdate(room.players);
+    this.renderUnoWaitingRoom(room);
+  }
+
+  handleHostRemoveUnoBot() {
+    const room = this.network.roomsState[this.network.currentRoomId];
+    if (!room || !room.players) return;
+    const lastBotIdx = room.players.map(p => p.isBot).lastIndexOf(true);
+    if (lastBotIdx !== -1) {
+      room.players.splice(lastBotIdx, 1);
+      this.network.sendUnoWaitingUpdate(room.players);
+      this.renderUnoWaitingRoom(room);
+    }
+  }
+
+  handleLeaveUnoWaitingRoom() {
+    if (this.dom.unoWaitingModal) this.dom.unoWaitingModal.classList.add("view-hidden");
+    this.network.leaveCurrentRoom();
+    this.exitToLobby();
+  }
+
+  startUnoGameWithState(gameState) {
+    this.unoState = gameState.unoState;
+    this.unoPlayers = gameState.unoPlayers;
+    this.myUnoIndex = this.unoPlayers.findIndex(p => p.id === this.network.clientId);
+    if (this.myUnoIndex === -1) {
+      this.myUnoIndex = this.role === "spectator" ? -1 : 0;
+    }
+
+    this.isGameOver = false;
+    this.isPaused = false;
+    this.hasDrawnThisTurn = false;
+    this.pendingWildCardId = null;
+
+    this.gameStats = {
+      startTime: Date.now(),
+      endTime: null,
+      totalMoves: 0,
+      whiteMoves: 0,
+      blackMoves: 0,
+      turnDurations: [],
+      promotions: 0
+    };
+    this.turnStartTime = Date.now();
+
+    this.showGameView();
+    this.updateMatchTitle();
+    this.renderUnoTable();
+    this.startTurnTimer();
+
+    this.checkNextUnoTurn();
+  }
+
+  createUnoCardElement(card, isPlayable) {
+    const div = document.createElement("div");
+    const sym = SUIT_SYMBOLS[card.suit] || "★";
+    const valDisplay = ACTION_SYMBOLS[card.value] || card.value;
+    div.className = `uno-card ${isPlayable ? 'playable' : 'unplayable'}`;
+    div.setAttribute("data-card-id", card.id);
+    div.innerHTML = `
+      <div class="card-corner top-left">
+        <span class="corner-sym">${sym}</span>
+        <span class="corner-val">${valDisplay}</span>
+      </div>
+      <div class="card-center">
+        <span class="center-sym">${sym}</span>
+        <span class="center-val">${valDisplay}</span>
+      </div>
+      <div class="card-corner bottom-right">
+        <span class="corner-sym">${sym}</span>
+        <span class="corner-val">${valDisplay}</span>
+      </div>
+    `;
+    return div;
+  }
+
+  renderUnoDiscardTopCard(card) {
+    if (!card || !this.dom.unoDiscardPile) return;
+    const sym = SUIT_SYMBOLS[card.suit] || "★";
+    const valDisplay = ACTION_SYMBOLS[card.value] || card.value;
+    this.dom.unoDiscardPile.className = "uno-card";
+    this.dom.unoDiscardPile.innerHTML = `
+      <div class="card-corner top-left">
+        <span class="corner-sym">${sym}</span>
+        <span class="corner-val">${valDisplay}</span>
+      </div>
+      <div class="card-center">
+        <span class="center-sym">${sym}</span>
+        <span class="center-val">${valDisplay}</span>
+      </div>
+      <div class="card-corner bottom-right">
+        <span class="corner-sym">${sym}</span>
+        <span class="corner-val">${valDisplay}</span>
+      </div>
+    `;
+  }
+
+  renderUnoTable() {
+    if (!this.unoState) return;
+
+    // 1. Opponent Seats
+    if (this.dom.unoOpponentsArea) {
+      this.dom.unoOpponentsArea.innerHTML = "";
+      this.unoPlayers.forEach((player, idx) => {
+        if (idx === this.myUnoIndex) return;
+        const seat = document.createElement("div");
+        const isTurn = this.unoState.currentTurn === idx;
+        seat.className = `uno-seat ${isTurn ? 'active-turn' : ''}`;
+        const count = this.unoState.hands[idx] ? this.unoState.hands[idx].length : 0;
+        const isUno = count === 1;
+
+        seat.innerHTML = `
+          <span class="seat-avatar">${player.isBot ? '🤖' : '👤'}</span>
+          <div class="seat-info">
+            <span class="seat-name">${player.name}</span>
+            <span class="seat-cards-badge">🎴 ${count}</span>
+          </div>
+          ${isUno ? `<span class="seat-uno-pill">UNO!</span>` : ''}
+        `;
+        this.dom.unoOpponentsArea.appendChild(seat);
+      });
+    }
+
+    // 2. Discard Pile Top Card
+    const topCard = this.unoState.discardPile[this.unoState.discardPile.length - 1];
+    this.renderUnoDiscardTopCard(topCard);
+
+    // 3. Center Draw Pile & Status
+    if (this.dom.unoDrawCountLabel) {
+      this.dom.unoDrawCountLabel.textContent = t("pileCountText").replace("{n}", this.unoState.drawPile.length);
+    }
+    if (this.dom.unoDirectionBadge) {
+      this.dom.unoDirectionBadge.textContent = this.unoState.direction === 1 ? "↻" : "↺";
+    }
+    if (this.dom.unoActiveSuitSym && this.dom.unoActiveSuitName) {
+      this.dom.unoActiveSuitSym.textContent = SUIT_SYMBOLS[this.unoState.activeSuit] || "◯";
+      this.dom.unoActiveSuitName.textContent = t(this.unoState.activeSuit + "Suit");
+    }
+
+    if (this.dom.unoStackPill) {
+      if (this.unoState.pendingDrawCount > 0) {
+        this.dom.unoStackPill.textContent = `+${this.unoState.pendingDrawCount}`;
+        this.dom.unoStackPill.classList.remove("view-hidden");
+      } else {
+        this.dom.unoStackPill.classList.add("view-hidden");
+      }
+    }
+
+    // 4. Player's Hand
+    if (this.dom.unoHandContainer) {
+      this.dom.unoHandContainer.innerHTML = "";
+      const isMyTurn = this.unoState.currentTurn === this.myUnoIndex;
+      const myHand = this.unoState.hands[this.myUnoIndex] || [];
+
+      myHand.forEach(card => {
+        const isPlayable = isMyTurn && isCardPlayable(card, topCard, this.unoState.activeSuit, this.unoState.pendingDrawCount, this.unoState.ruleVariant);
+        const cardEl = this.createUnoCardElement(card, isPlayable);
+        if (isPlayable) {
+          cardEl.addEventListener("click", () => this.handlePlayerPlayUnoCard(card.id));
+        }
+        this.dom.unoHandContainer.appendChild(cardEl);
+      });
+
+      // 5. Action Buttons (Draw / Pass / Shout)
+      if (this.dom.unoActionDrawBtn) {
+        if (isMyTurn) {
+          this.dom.unoActionDrawBtn.classList.remove("view-hidden");
+        } else {
+          this.dom.unoActionDrawBtn.classList.add("view-hidden");
+        }
+      }
+      if (this.dom.unoActionPassBtn) {
+        if (isMyTurn && this.hasDrawnThisTurn) {
+          this.dom.unoActionPassBtn.classList.remove("view-hidden");
+        } else {
+          this.dom.unoActionPassBtn.classList.add("view-hidden");
+        }
+      }
+      if (this.dom.unoShoutBtn) {
+        if (myHand.length <= 2 && !this.unoState.unoShouted[this.myUnoIndex]) {
+          this.dom.unoShoutBtn.classList.remove("view-hidden");
+        } else {
+          this.dom.unoShoutBtn.classList.add("view-hidden");
+        }
+      }
+    }
+
+    // 6. Turn Status Indicator
+    this.updateUnoTurnStatusUI();
+  }
+
+  updateUnoTurnStatusUI() {
+    if (!this.unoState) return;
+    const currentIdx = this.unoState.currentTurn;
+    const currentPlayer = this.unoPlayers[currentIdx];
+    const isMe = currentIdx === this.myUnoIndex;
+    const name = isMe ? `${t("youLabel")} (You)` : (currentPlayer?.name || `Player ${currentIdx + 1}`);
+
+    if (this.dom.turnBadge) {
+      this.dom.turnBadge.textContent = `${t("turnStatusPrefix") || "ตาเดิน:"} ${name}`;
+    }
+
+    if (this.dom.whitePlayerBox && this.dom.blackPlayerBox) {
+      if (isMe) {
+        this.dom.whitePlayerBox.classList.add("active-turn-ring");
+        this.dom.blackPlayerBox.classList.remove("active-turn-ring");
+      } else {
+        this.dom.whitePlayerBox.classList.remove("active-turn-ring");
+        this.dom.blackPlayerBox.classList.add("active-turn-ring");
+      }
+      if (this.dom.whitePlayerName) {
+        this.dom.whitePlayerName.textContent = `${this.network.getNickname()} (${t("youLabel")})`;
+      }
+      if (this.dom.whitePiecesCount) {
+        this.dom.whitePiecesCount.textContent = this.unoState.hands[this.myUnoIndex]?.length || 0;
+      }
+      if (this.dom.blackPlayerName) {
+        this.dom.blackPlayerName.textContent = name;
+      }
+      if (this.dom.blackPiecesCount) {
+        this.dom.blackPiecesCount.textContent = this.unoState.hands[currentIdx]?.length || 0;
+      }
+    }
+  }
+
+  handlePlayerPlayUnoCard(cardId) {
+    if (this.isGameOver || this.isPaused) return;
+    if (this.unoState.currentTurn !== this.myUnoIndex) return;
+
+    const myHand = this.unoState.hands[this.myUnoIndex];
+    const card = myHand.find(c => c.id === cardId);
+    if (!card) return;
+
+    if (card.suit === "wild") {
+      this.pendingWildCardId = cardId;
+      if (this.dom.unoSuitModal) this.dom.unoSuitModal.classList.remove("view-hidden");
+      return;
+    }
+
+    this.executePlayUnoCard(this.myUnoIndex, cardId, null);
+  }
+
+  handleSelectWildSuit(suit) {
+    if (this.dom.unoSuitModal) this.dom.unoSuitModal.classList.add("view-hidden");
+    if (!this.pendingWildCardId) return;
+    const cardId = this.pendingWildCardId;
+    this.pendingWildCardId = null;
+    this.executePlayUnoCard(this.myUnoIndex, cardId, suit);
+  }
+
+  executePlayUnoCard(playerIdx, cardId, chosenSuit) {
+    const res = playUnoCard(this.unoState, playerIdx, cardId, chosenSuit);
+    if (!res.success) return;
+
+    this.hasDrawnThisTurn = false;
+    this.gameStats.totalMoves++;
+    playMove();
+
+    if (this.mode === "online") {
+      this.network.sendUnoMove({
+        playerIdx,
+        cardId,
+        chosenSuit,
+        unoState: this.unoState
+      });
+    }
+
+    if (res.isGameOver) {
+      this.endUnoGame(res.winner);
+      return;
+    }
+
+    this.renderUnoTable();
+    this.startTurnTimer();
+    this.checkNextUnoTurn();
+  }
+
+  handlePlayerDrawUnoCard() {
+    if (this.isGameOver || this.isPaused) return;
+    if (this.unoState.currentTurn !== this.myUnoIndex) return;
+
+    if (this.unoState.pendingDrawCount > 0) {
+      drawCardsToPlayer(this.unoState, this.myUnoIndex, this.unoState.pendingDrawCount);
+      this.unoState.pendingDrawCount = 0;
+      this.unoState.currentTurn = (this.myUnoIndex + this.unoState.direction + this.unoState.playerCount) % this.unoState.playerCount;
+      playMove();
+      if (this.mode === "online") {
+        this.network.sendUnoDraw({
+          playerIdx: this.myUnoIndex,
+          unoState: this.unoState
+        });
+      }
+      this.renderUnoTable();
+      this.startTurnTimer();
+      this.checkNextUnoTurn();
+      return;
+    }
+
+    if (this.hasDrawnThisTurn) return;
+
+    drawCardsToPlayer(this.unoState, this.myUnoIndex, 1);
+    this.hasDrawnThisTurn = true;
+    playMove();
+
+    if (this.mode === "online") {
+      this.network.sendUnoDraw({
+        playerIdx: this.myUnoIndex,
+        unoState: this.unoState
+      });
+    }
+
+    this.renderUnoTable();
+  }
+
+  handlePlayerPassUnoTurn() {
+    if (this.isGameOver || this.isPaused) return;
+    if (this.unoState.currentTurn !== this.myUnoIndex) return;
+    if (!this.hasDrawnThisTurn) return;
+
+    passUnoTurn(this.unoState, this.myUnoIndex);
+    this.hasDrawnThisTurn = false;
+
+    if (this.mode === "online") {
+      this.network.sendUnoPass({
+        playerIdx: this.myUnoIndex,
+        unoState: this.unoState
+      });
+    }
+
+    this.renderUnoTable();
+    this.startTurnTimer();
+    this.checkNextUnoTurn();
+  }
+
+  handlePlayerShoutUno() {
+    if (this.isGameOver || !this.unoState) return;
+    shoutUno(this.unoState, this.myUnoIndex);
+    playKing();
+    if (this.mode === "online") {
+      this.network.sendUnoShout(this.network.clientId, this.network.getNickname());
+    }
+    if (this.dom.unoShoutBtn) this.dom.unoShoutBtn.classList.add("view-hidden");
+  }
+
+  checkNextUnoTurn() {
+    if (this.isGameOver || this.isPaused || !this.unoState) return;
+
+    const currentIdx = this.unoState.currentTurn;
+    const player = this.unoPlayers[currentIdx];
+
+    if (player && player.isBot) {
+      if (this.mode === "bot" || (this.mode === "online" && this.role === "player1")) {
+        clearTimeout(this.botTimeout);
+        this.botTimeout = setTimeout(() => {
+          if (this.isGameOver || this.isPaused) return;
+          this.executeBotUnoTurn(currentIdx);
+        }, 900);
+      }
+    }
+  }
+
+  executeBotUnoTurn(botIdx) {
+    if (this.isGameOver || this.isPaused || !this.unoState) return;
+    if (this.unoState.currentTurn !== botIdx) return;
+
+    const action = getAIUnoAction(this.unoState, botIdx, this.botDifficulty);
+
+    if (action.action === "draw") {
+      if (this.unoState.pendingDrawCount > 0) {
+        drawCardsToPlayer(this.unoState, botIdx, this.unoState.pendingDrawCount);
+        this.unoState.pendingDrawCount = 0;
+        this.unoState.currentTurn = (botIdx + this.unoState.direction + this.unoState.playerCount) % this.unoState.playerCount;
+      } else {
+        const drawn = drawCardsToPlayer(this.unoState, botIdx, 1);
+        const topCard = this.unoState.discardPile[this.unoState.discardPile.length - 1];
+        if (drawn[0] && isCardPlayable(drawn[0], topCard, this.unoState.activeSuit, 0, this.unoState.ruleVariant)) {
+          const chosenSuit = drawn[0].suit === "wild" ? "circle" : null;
+          const res = playUnoCard(this.unoState, botIdx, drawn[0].id, chosenSuit);
+          if (res.isGameOver) {
+            playMove();
+            if (this.mode === "online") {
+              this.network.sendUnoMove({ playerIdx: botIdx, cardId: drawn[0].id, chosenSuit, unoState: this.unoState });
+            }
+            this.endUnoGame(res.winner);
+            return;
+          }
+        } else {
+          passUnoTurn(this.unoState, botIdx);
+        }
+      }
+      playMove();
+      if (this.mode === "online") {
+        this.network.sendUnoDraw({ playerIdx: botIdx, unoState: this.unoState });
+      }
+    } else if (action.action === "play") {
+      const res = playUnoCard(this.unoState, botIdx, action.cardId, action.chosenSuit);
+      playMove();
+      if (this.mode === "online") {
+        this.network.sendUnoMove({ playerIdx: botIdx, cardId: action.cardId, chosenSuit: action.chosenSuit, unoState: this.unoState });
+      }
+      if (res.isGameOver) {
+        this.endUnoGame(res.winner);
+        return;
+      }
+    }
+
+    this.gameStats.totalMoves++;
+    this.renderUnoTable();
+    this.startTurnTimer();
+    this.checkNextUnoTurn();
+  }
+
+  handleUnoWaitingUpdate(players) {
+    if (this.network.roomsState[this.network.currentRoomId]) {
+      this.network.roomsState[this.network.currentRoomId].players = players;
+    }
+    this.renderUnoWaitingRoom({ players });
+  }
+
+  handleUnoStartReceived(gameState) {
+    if (this.dom.unoWaitingModal) this.dom.unoWaitingModal.classList.add("view-hidden");
+    this.startUnoGameWithState(gameState);
+  }
+
+  handleUnoMoveReceived(data) {
+    if (this.isGameOver) return;
+    this.unoState = data.unoState;
+    this.gameStats.totalMoves++;
+    playMove();
+    this.renderUnoTable();
+    this.startTurnTimer();
+    this.checkNextUnoTurn();
+  }
+
+  handleUnoDrawReceived(data) {
+    if (this.isGameOver) return;
+    this.unoState = data.unoState;
+    playMove();
+    this.renderUnoTable();
+    this.startTurnTimer();
+    this.checkNextUnoTurn();
+  }
+
+  handleUnoPassReceived(data) {
+    if (this.isGameOver) return;
+    this.unoState = data.unoState;
+    this.renderUnoTable();
+    this.startTurnTimer();
+    this.checkNextUnoTurn();
+  }
+
+  handleUnoShoutReceived(data) {
+    playKing();
+    if (data.playerName && this.dom.mandatoryNotice) {
+      this.dom.mandatoryNotice.textContent = t("unoShoutedMsg").replace("{name}", data.playerName);
+      this.dom.mandatoryNotice.classList.remove("view-hidden");
+      setTimeout(() => {
+        if (this.dom.mandatoryNotice) this.dom.mandatoryNotice.classList.add("view-hidden");
+      }, 2500);
+    }
+    this.renderUnoTable();
+  }
+
+  endUnoGame(winnerIndex) {
+    this.isGameOver = true;
+    this.stopTurnTimer();
+    this.clearDisconnectCountdown();
+    this.clearPauseSession();
+    this.gameStats.endTime = Date.now();
+
+    playVictory();
+
+    const winnerObj = this.unoPlayers[winnerIndex];
+    const isMe = winnerIndex === this.myUnoIndex;
+    const winnerName = isMe ? `${this.network.getNickname()} (${t("youLabel")})` : (winnerObj?.name || `Player ${winnerIndex + 1}`);
+
+    this.dom.modalWinnerTitle.textContent = isMe ? `🎉 ${t("gameOverTitle")}` : t("gameOverTitle");
+    this.dom.modalWinnerReason.textContent = `${winnerName} ${t("statResultDetail")}: ไพ่หมดมือคนแรก (UNO Win!)`;
+
+    this.dom.modalStatMode.textContent = this.activeMode === "uno_stacking" ? t("ruleUnoStacking") : t("ruleUnoStandard");
+    const totalSec = Math.floor((this.gameStats.endTime - this.gameStats.startTime) / 1000);
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    this.dom.statTotalTime.textContent = `${m}${t("minuteShort")} ${s}${t("secondShort")}`;
+    this.dom.statTotalMoves.textContent = `${this.gameStats.totalMoves} ${t("statMovesUnit")}`;
+
+    const avgSec = this.gameStats.totalMoves > 0 ? (totalSec / this.gameStats.totalMoves).toFixed(1) : "0";
+    this.dom.statAvgTime.textContent = `${avgSec} ${t("secondShort")}`;
+    this.dom.statCaptures.textContent = "—";
+    this.dom.statPromotions.textContent = "—";
+    this.dom.statResultDetail.textContent = `ผู้ชนะ: ${winnerName}`;
+
+    this.dom.gameOverModal.classList.remove("view-hidden");
   }
 }
 

@@ -16,6 +16,7 @@ export const translations = {
     gameCheckersTab: "หมากฮอส",
     gameChessTab: "หมากรุก",
     gameOthelloTab: "โอเทลโล่",
+    gameUnoTab: "UNO",
     rulesSelectorLabel: "เลือกกติกาการเล่น:",
     
     // Checkers Variants
@@ -34,6 +35,13 @@ export const translations = {
     ruleOthello: "กติกาสากล (8x8 • พลิกหนีบหมาก)",
     ruleOthelloShort: "โอเทลโล่",
     ruleOthelloDesc: "วางหมากประกบหัวท้ายเพื่อพลิกสี ฝ่ายมีหมากมากที่สุดชนะ",
+
+    // UNO Variants
+    ruleUnoStandard: "กติกามาตรฐาน (Standard)",
+    ruleUnoStandardDesc: "กติกาอูโน่สากล โดน +2 / +4 ต้องจั่วทันที ห้ามลงทบ",
+    ruleUnoStacking: "กติกาลงทบแต้ม (Stacking +2 / +4)",
+    ruleUnoStackingDesc: "สามารถลง +2 หรือ +4 ซ้อนทบเพื่อส่งต่อยอดการจั่วให้คนถัดไป",
+    ruleUnoShort: "UNO",
 
     currentRuleTitle: "กติกาปัจจุบัน:",
     rulesHeader: "กติกาการเล่น",
@@ -127,6 +135,32 @@ export const translations = {
     ruleOthelloDesc5: "• จบเกมเมื่อกระดานเต็มหรือทั้งสองฝ่ายไม่มีตาเดิน ฝ่ายที่มีหมากมากกว่าชนะ",
     othelloPassNotice: "ไม่มีตาเดิน! ข้ามตาเดินไปยังฝ่ายตรงข้าม",
 
+    // Rules Details: UNO
+    ruleUnoDesc1: "• แจกไพ่คนละ 7 ใบ ไพ่รวม 108 ใบ (◯ ◻ △ ◇ และ ★)",
+    ruleUnoDesc2: "• ลงไพ่ที่สัญลักษณ์หรือตัวเลขตรงกับไพ่ใบบนสุดของกองทิ้ง",
+    ruleUnoDesc3: "• ไพ่พิเศษ: ข้ามตา(🚫), กลับทิศ(🔄), จั่วสอง(+2), เปลี่ยนสัญลักษณ์(★)",
+    ruleUnoDesc4: "• เมื่อเหลือไพ่ 1 ใบ ต้องกดปุ่ม 'UNO!' ก่อนเริ่มตาถัดไป",
+    ruleUnoDesc5: "• ผู้ที่ไพ่หมดมือคนแรกเป็นผู้ชนะ!",
+    botCountLabel: "จำนวนบอท:",
+    unoBotCountFmt: "{n} บอท (รวม {total} คน)",
+    unoWaitingTitle: "ห้องพักคอย UNO",
+    unoWaitingSub: "ผู้เล่นในห้อง (สูงสุด 8 คน)",
+    unoStartBtn: "🎮 เริ่มเกม (Start Game)",
+    unoAddBotBtn: "+ เพิ่มบอท",
+    unoRemoveBotBtn: "- ลดบอท",
+    unoWaitingHostMsg: "กำลังรอ Host กดเริ่มเกม...",
+    unoShoutBtn: "⚡ UNO!",
+    unoShoutedMsg: "{name} ร้อง UNO!",
+    unoCaughtPenalty: "{name} ลืมร้อง UNO! โดนปรับจั่ว 2 ใบ",
+    chooseNextSuit: "เลือกสัญลักษณ์ถัดไป:",
+    circleSuit: "◯ วงกลม",
+    squareSuit: "◻ สี่เหลี่ยม",
+    triangleSuit: "△ สามเหลี่ยม",
+    diamondSuit: "◇ ข้าวหลามตัด",
+    unoDrawBtn: "จั่วไพ่",
+    unoPassBtn: "ผ่าน",
+    pileCountText: "กองจั่ว: {n} ใบ",
+
     // Stalling / Repetition Endgame Rule
     endgameRuleDesc: "• กติกาเดินหนี: หากไม่มีการกินติดต่อกัน 10 ตาเดิน จะเริ่มนับถอยหลังอีก 20 ตาเดิน หากครบแล้วยังไม่จบจะตัดสินให้ฝ่ายที่มีหมากมากกว่าชนะทันที",
     endgameCountdownBadge: "⚡ กติกาเดินหนี: บังคับจบเกมในอีก {n} ตาเดิน (ใครหมากเยอะกว่าชนะ)",
@@ -204,6 +238,7 @@ export const translations = {
     gameCheckersTab: "Checkers",
     gameChessTab: "Chess",
     gameOthelloTab: "Othello",
+    gameUnoTab: "UNO",
     rulesSelectorLabel: "Select Rules Mode:",
 
     // Checkers Variants
@@ -222,6 +257,13 @@ export const translations = {
     ruleOthello: "Standard (8x8 • Reversi Flips)",
     ruleOthelloShort: "Othello",
     ruleOthelloDesc: "Trap opponent discs between your pieces to flip them. Most discs wins.",
+
+    // UNO Variants
+    ruleUnoStandard: "Standard Rules (Draw on +2/+4)",
+    ruleUnoStandardDesc: "Official UNO rules: Draw 2 and Wild Draw 4 must be drawn immediately without stacking.",
+    ruleUnoStacking: "Stacking Rules (+2 / +4 Chain)",
+    ruleUnoStackingDesc: "Players can counter Draw 2 or Draw 4 with matching cards to stack penalty on next player.",
+    ruleUnoShort: "UNO",
 
     currentRuleTitle: "Current Rules:",
     rulesHeader: "Rules Overview",
@@ -314,6 +356,32 @@ export const translations = {
     ruleOthelloDesc4: "• If no legal moves available, your turn is automatically passed",
     ruleOthelloDesc5: "• Game ends when board is full or neither can move. Most discs wins",
     othelloPassNotice: "No legal moves! Turn passed to opponent",
+
+    // Rules Details: UNO
+    ruleUnoDesc1: "• 7 cards dealt to each player. 108 total cards (◯ ◻ △ ◇ and ★)",
+    ruleUnoDesc2: "• Play cards matching the top discard card by symbol or number",
+    ruleUnoDesc3: "• Action cards: Skip(🚫), Reverse(🔄), Draw 2(+2), Wild(★)",
+    ruleUnoDesc4: "• When down to 1 card, shout 'UNO!' before your next turn",
+    ruleUnoDesc5: "• First player to discard all cards wins the match!",
+    botCountLabel: "Bot Count:",
+    unoBotCountFmt: "{n} Bots ({total} players total)",
+    unoWaitingTitle: "UNO Match Lobby",
+    unoWaitingSub: "Players in Room (up to 8 players)",
+    unoStartBtn: "🎮 Start Game",
+    unoAddBotBtn: "+ Add Bot",
+    unoRemoveBotBtn: "- Remove Bot",
+    unoWaitingHostMsg: "Waiting for Room Host to start...",
+    unoShoutBtn: "⚡ UNO!",
+    unoShoutedMsg: "{name} shouted UNO!",
+    unoCaughtPenalty: "{name} forgot to shout UNO! 2-card draw penalty",
+    chooseNextSuit: "Choose next symbol:",
+    circleSuit: "◯ Circle",
+    squareSuit: "◻ Square",
+    triangleSuit: "△ Triangle",
+    diamondSuit: "◇ Diamond",
+    unoDrawBtn: "Draw Card",
+    unoPassBtn: "Pass Turn",
+    pileCountText: "Draw Pile: {n}",
 
     // Stalling / Repetition Endgame Rule
     endgameRuleDesc: "• Stalling Rule: If 10 consecutive turns pass without any capture, a 20-turn countdown begins. If game doesn't end, player with most pieces wins.",
