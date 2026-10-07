@@ -54,7 +54,6 @@ import {
 } from "./sfx.js";
 
 import { getPieceSVG } from "./pieces-svg.js";
-import { generateMatchStatsCanvas, shareOrSaveMatchCard } from "./screenshot.js";
 
 class BoardGameApp {
   constructor() {
@@ -107,6 +106,13 @@ class BoardGameApp {
     this.isEndgameCountdownActive = false;
     this.endgameMovesRemaining = 20;
 
+    // Pause state (3 minutes = 180s per pause)
+    this.isPaused = false;
+    this.pauseSecondsLeft = 180;
+    this.pauseInterval = null;
+    this.pauseWaiting = false;
+    this.botTimeout = null;
+
     // Worker for Checkers
     this.aiWorker = null;
     this.initWorker();
@@ -134,7 +140,7 @@ class BoardGameApp {
       this.aiWorker = new Worker(new URL("./ai-worker.js", import.meta.url), { type: "module" });
       this.aiWorker.onmessage = (e) => {
         const { bestMove } = e.data;
-        if (bestMove && !this.isGameOver && this.turn === BLACK && this.modeIsCheckers()) {
+        if (bestMove && !this.isGameOver && !this.isPaused && this.turn === BLACK && this.modeIsCheckers()) {
           this.executeMoveWithAnimation(bestMove);
         }
       };
@@ -168,7 +174,7 @@ class BoardGameApp {
 
       exitLobbyBtn: document.getElementById("exit-lobby-btn"),
       resignGameBtn: document.getElementById("resign-game-btn"),
-      restartGameBtn: document.getElementById("restart-game-btn"),
+      pauseGameBtn: document.getElementById("pause-game-btn"),
       matchInfoTitle: document.getElementById("match-info-title"),
       endgameTurnBadge: document.getElementById("endgame-turn-badge"),
       whitePlayerBox: document.getElementById("white-player-box"),
@@ -202,12 +208,17 @@ class BoardGameApp {
       statPromotions: document.getElementById("stat-promotions"),
       statResultDetail: document.getElementById("stat-result-detail"),
 
-      // Screenshot & Share DOM elements
-      modalScreenshotBtn: document.getElementById("modal-screenshot-btn"),
-      screenshotModal: document.getElementById("screenshot-modal"),
-      screenshotImg: document.getElementById("screenshot-img"),
-      screenshotDownloadLink: document.getElementById("screenshot-download-link"),
-      screenshotCloseBtn: document.getElementById("screenshot-close-btn"),
+      // Pause DOM elements
+      pauseModal: document.getElementById("pause-modal"),
+      pauseCountdown: document.getElementById("pause-countdown"),
+      pauseBarFill: document.getElementById("pause-bar-fill"),
+      resumeGameBtn: document.getElementById("resume-game-btn"),
+      pauseRequestModal: document.getElementById("pause-request-modal"),
+      pauseRequestMsg: document.getElementById("pause-request-msg"),
+      acceptPauseBtn: document.getElementById("accept-pause-btn"),
+      declinePauseBtn: document.getElementById("decline-pause-btn"),
+      pauseWaitingModal: document.getElementById("pause-waiting-modal"),
+      cancelPauseBtn: document.getElementById("cancel-pause-btn"),
 
       langThBtn: document.getElementById("lang-th-btn"),
       langEnBtn: document.getElementById("lang-en-btn"),
@@ -284,16 +295,25 @@ class BoardGameApp {
       if (this.isGameOver || this.role === "spectator" || !this.isMatchActive()) return;
       this.handleResign(this.myColor);
     });
-    this.dom.restartGameBtn.addEventListener("click", () => {
-      if (this.mode === "online") {
-        this.network.sendRestart();
-      }
-      this.resetGameRound();
-    });
+
+    if (this.dom.pauseGameBtn) {
+      this.dom.pauseGameBtn.addEventListener("click", () => this.handlePauseClick());
+    }
+    if (this.dom.resumeGameBtn) {
+      this.dom.resumeGameBtn.addEventListener("click", () => this.handleResumeClick());
+    }
+    if (this.dom.acceptPauseBtn) {
+      this.dom.acceptPauseBtn.addEventListener("click", () => this.respondToPauseRequest(true));
+    }
+    if (this.dom.declinePauseBtn) {
+      this.dom.declinePauseBtn.addEventListener("click", () => this.respondToPauseRequest(false));
+    }
+    if (this.dom.cancelPauseBtn) {
+      this.dom.cancelPauseBtn.addEventListener("click", () => this.cancelOnlinePauseRequest());
+    }
 
     this.dom.modalReplayBtn.addEventListener("click", () => {
       this.dom.gameOverModal.classList.add("view-hidden");
-      if (this.dom.screenshotModal) this.dom.screenshotModal.classList.add("view-hidden");
       if (this.mode === "online") {
         this.network.sendRestart();
       }
@@ -301,25 +321,8 @@ class BoardGameApp {
     });
     this.dom.modalLobbyBtn.addEventListener("click", () => {
       this.dom.gameOverModal.classList.add("view-hidden");
-      if (this.dom.screenshotModal) this.dom.screenshotModal.classList.add("view-hidden");
       this.exitToLobby();
     });
-
-    if (this.dom.modalScreenshotBtn) {
-      this.dom.modalScreenshotBtn.addEventListener("click", () => this.handleScreenshot());
-    }
-    if (this.dom.screenshotCloseBtn) {
-      this.dom.screenshotCloseBtn.addEventListener("click", () => {
-        if (this.dom.screenshotModal) this.dom.screenshotModal.classList.add("view-hidden");
-      });
-    }
-    if (this.dom.screenshotModal) {
-      this.dom.screenshotModal.addEventListener("click", (e) => {
-        if (e.target === this.dom.screenshotModal) {
-          this.dom.screenshotModal.classList.add("view-hidden");
-        }
-      });
-    }
 
     // Multiplayer callbacks
     this.network.onLobbyUpdated = (roomsState) => this.renderLobbyRooms(roomsState);
@@ -342,6 +345,9 @@ class BoardGameApp {
       this.dom.gameOverModal.classList.add("view-hidden");
       this.resetGameRound();
     };
+    this.network.onPauseRequested = (msg) => this.handleOpponentPauseRequest(msg);
+    this.network.onPauseResponded = (msg) => this.handlePauseResponse(msg);
+    this.network.onPauseResumed = () => this.handleOpponentPauseResume();
     this.network.onOpponentLeft = () => {
       if (!this.isGameOver && this.isMatchActive()) {
         this.handleOpponentDisconnected();
@@ -678,6 +684,7 @@ class BoardGameApp {
   exitToLobby() {
     this.stopTurnTimer();
     this.clearDisconnectCountdown();
+    this.clearPauseSession();
     if (this.mode === "online") {
       this.network.leaveCurrentRoom();
     }
@@ -688,6 +695,7 @@ class BoardGameApp {
 
   resetGameRound() {
     this.clearDisconnectCountdown();
+    this.clearPauseSession();
     this.turn = WHITE;
     this.selectedSquare = null;
     this.legalMovesForSelected = [];
@@ -827,7 +835,7 @@ class BoardGameApp {
   }
 
   handleSquareClick(r, c) {
-    if (this.isAnimating || this.isGameOver || this.role === "spectator") return;
+    if (this.isAnimating || this.isGameOver || this.role === "spectator" || this.isPaused) return;
     if (!this.isMatchActive()) return;
     if (this.turn !== this.myColor) return;
 
@@ -1094,9 +1102,11 @@ class BoardGameApp {
   }
 
   triggerBotTurn() {
+    if (this.botTimeout) clearTimeout(this.botTimeout);
     const delay = Math.random() * 250 + 380;
-    setTimeout(() => {
-      if (this.isGameOver) return;
+    this.botTimeout = setTimeout(() => {
+      this.botTimeout = null;
+      if (this.isGameOver || this.isPaused) return;
 
       if (this.modeIsCheckers()) {
         const ruleVar = this.activeMode === "checkers_thai" ? RULE_THAI : RULE_INTERNATIONAL;
@@ -1110,14 +1120,14 @@ class BoardGameApp {
           });
         } else {
           const best = getAICheckersMove(this.board, BLACK, this.botDifficulty, ruleVar);
-          if (best) this.executeMoveWithAnimation(best);
+          if (best && !this.isPaused) this.executeMoveWithAnimation(best);
         }
       } else if (this.activeMode === "chess_makruk") {
         const best = getAIMakrukMove(this.board, BLACK, this.botDifficulty);
-        if (best) this.executeMoveWithAnimation(best);
+        if (best && !this.isPaused) this.executeMoveWithAnimation(best);
       } else if (this.activeMode === "chess_western") {
         const best = getAIChessMove(this.chessFen, BLACK, this.botDifficulty);
-        if (best) this.executeMoveWithAnimation(best);
+        if (best && !this.isPaused) this.executeMoveWithAnimation(best);
       }
     }, delay);
   }
@@ -1283,6 +1293,7 @@ class BoardGameApp {
     this.isGameOver = true;
     this.stopTurnTimer();
     this.clearDisconnectCountdown();
+    this.clearPauseSession();
     playVictory();
 
     let winnerText = winner === WHITE ? t("winnerWhite") : t("winnerBlack");
@@ -1348,55 +1359,201 @@ class BoardGameApp {
     this.dom.gameOverModal.classList.remove("view-hidden");
   }
 
-  async handleScreenshot() {
-    try {
-      const statsData = {
-        modeName: this.dom.modalStatMode ? this.dom.modalStatMode.textContent : "Minimal Board Game",
-        winnerTitle: this.dom.modalWinnerTitle ? this.dom.modalWinnerTitle.textContent : t("gameOverTitle"),
-        winnerReason: this.dom.modalWinnerReason ? this.dom.modalWinnerReason.textContent : "",
-        whitePlayer: (this.dom.whitePlayerName ? this.dom.whitePlayerName.textContent : "").trim() || t("defaultPlayerName"),
-        blackPlayer: (this.dom.blackPlayerName ? this.dom.blackPlayerName.textContent : "").trim() || t("botName"),
-        statsHeader: t("matchStatsTitle"),
-        labels: {
-          totalTime: t("statTotalTime"),
-          avgTime: t("statAvgTime"),
-          totalMoves: t("statTotalMoves"),
-          captures: t("statCaptures"),
-          promotions: t("statPromotions"),
-          resultDetail: t("statResultDetail")
-        },
-        values: {
-          totalTime: this.dom.statTotalTime ? this.dom.statTotalTime.textContent : "—",
-          avgTime: this.dom.statAvgTime ? this.dom.statAvgTime.textContent : "—",
-          totalMoves: this.dom.statTotalMoves ? this.dom.statTotalMoves.textContent : "—",
-          captures: this.dom.statCaptures ? this.dom.statCaptures.textContent : "—",
-          promotions: this.dom.statPromotions ? this.dom.statPromotions.textContent : "—",
-          resultDetail: this.dom.statResultDetail ? this.dom.statResultDetail.textContent : "—"
+  resumeTurnTimer() {
+    this.stopTurnTimer();
+    if (!this.isMatchActive()) {
+      this.dom.timerSeconds.textContent = "--";
+      this.dom.timerBarFill.style.width = "100%";
+      this.dom.timerBarFill.classList.remove("timer-danger");
+      return;
+    }
+
+    this.updateTimerDisplay();
+
+    this.timerInterval = setInterval(() => {
+      if (!this.isMatchActive() || this.isPaused) {
+        this.stopTurnTimer();
+        return;
+      }
+
+      this.timeRemaining--;
+      this.updateTimerDisplay();
+
+      if (this.timeRemaining <= 5 && this.timeRemaining > 0) {
+        playTimerTick();
+      }
+
+      if (this.timeRemaining <= 0) {
+        this.stopTurnTimer();
+        this.handleTimeout();
+      }
+    }, 1000);
+  }
+
+  clearPauseSession() {
+    if (this.pauseInterval) {
+      clearInterval(this.pauseInterval);
+      this.pauseInterval = null;
+    }
+    this.isPaused = false;
+    this.pauseWaiting = false;
+    if (this.dom.pauseModal) this.dom.pauseModal.classList.add("view-hidden");
+    if (this.dom.pauseWaitingModal) this.dom.pauseWaitingModal.classList.add("view-hidden");
+    if (this.dom.pauseRequestModal) this.dom.pauseRequestModal.classList.add("view-hidden");
+  }
+
+  handlePauseClick() {
+    if (this.isGameOver || this.role === "spectator" || !this.isMatchActive()) return;
+    if (this.isPaused) {
+      this.handleResumeClick();
+      return;
+    }
+
+    if (this.mode === "bot") {
+      // เล่นกับบอท กดพักได้ทันที
+      this.startPauseSession();
+    } else if (this.mode === "online") {
+      // เล่นออนไลน์ ต้องให้อีกฝั่งยินยอมก่อน
+      this.requestOnlinePause();
+    }
+  }
+
+  startPauseSession() {
+    this.isPaused = true;
+    this.stopTurnTimer();
+    if (this.botTimeout) {
+      clearTimeout(this.botTimeout);
+      this.botTimeout = null;
+    }
+
+    this.pauseSecondsLeft = 180; // พักได้ครั้งละ 3 นาที
+    this.updatePauseDisplay();
+    if (this.dom.pauseModal) {
+      this.dom.pauseModal.classList.remove("view-hidden");
+    }
+
+    if (this.pauseInterval) clearInterval(this.pauseInterval);
+    this.pauseInterval = setInterval(() => {
+      this.pauseSecondsLeft--;
+      this.updatePauseDisplay();
+
+      if (this.pauseSecondsLeft <= 0) {
+        clearInterval(this.pauseInterval);
+        this.pauseInterval = null;
+        this.resumeGame(true); // กลับมานับเวลาเล่นต่ออัตโนมัติ
+      }
+    }, 1000);
+  }
+
+  updatePauseDisplay() {
+    const mins = Math.floor(Math.max(0, this.pauseSecondsLeft) / 60);
+    const secs = Math.max(0, this.pauseSecondsLeft) % 60;
+    if (this.dom.pauseCountdown) {
+      this.dom.pauseCountdown.textContent = `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+    }
+    if (this.dom.pauseBarFill) {
+      const pct = (Math.max(0, this.pauseSecondsLeft) / 180) * 100;
+      this.dom.pauseBarFill.style.width = `${pct}%`;
+    }
+  }
+
+  requestOnlinePause() {
+    if (this.pauseWaiting || this.isPaused) return;
+    this.pauseWaiting = true;
+    if (this.dom.pauseWaitingModal) {
+      this.dom.pauseWaitingModal.classList.remove("view-hidden");
+    }
+    this.network.sendPauseRequest();
+  }
+
+  cancelOnlinePauseRequest() {
+    this.pauseWaiting = false;
+    if (this.dom.pauseWaitingModal) {
+      this.dom.pauseWaitingModal.classList.add("view-hidden");
+    }
+  }
+
+  handleOpponentPauseRequest(msg) {
+    if (this.isGameOver || !this.isMatchActive() || this.isPaused) return;
+    const opponentName = msg.senderName || t("opponentName");
+    if (this.dom.pauseRequestMsg) {
+      this.dom.pauseRequestMsg.textContent = t("pauseRequestText").replace("{name}", opponentName);
+    }
+    if (this.dom.pauseRequestModal) {
+      this.dom.pauseRequestModal.classList.remove("view-hidden");
+    }
+  }
+
+  respondToPauseRequest(accept) {
+    if (this.dom.pauseRequestModal) {
+      this.dom.pauseRequestModal.classList.add("view-hidden");
+    }
+    this.network.sendPauseResponse(accept);
+    if (accept) {
+      this.startPauseSession();
+    }
+  }
+
+  handlePauseResponse(msg) {
+    this.pauseWaiting = false;
+    if (this.dom.pauseWaitingModal) {
+      this.dom.pauseWaitingModal.classList.add("view-hidden");
+    }
+
+    if (msg.accepted) {
+      this.startPauseSession();
+    } else {
+      if (this.dom.mandatoryNotice) {
+        this.dom.mandatoryNotice.textContent = t("pauseDeclinedNotice");
+        this.dom.mandatoryNotice.classList.remove("view-hidden");
+        setTimeout(() => {
+          if (!this.disconnectCountdownTimer && !this.isPaused && this.dom.mandatoryNotice) {
+            this.dom.mandatoryNotice.classList.add("view-hidden");
+          }
+        }, 3000);
+      }
+    }
+  }
+
+  handleResumeClick() {
+    if (this.mode === "online") {
+      this.network.sendPauseResume();
+    }
+    this.resumeGame(false);
+  }
+
+  handleOpponentPauseResume() {
+    this.resumeGame(false);
+  }
+
+  resumeGame(isAutoResume = false) {
+    if (!this.isPaused) return;
+    this.isPaused = false;
+    if (this.pauseInterval) {
+      clearInterval(this.pauseInterval);
+      this.pauseInterval = null;
+    }
+
+    if (this.dom.pauseModal) this.dom.pauseModal.classList.add("view-hidden");
+    if (this.dom.pauseWaitingModal) this.dom.pauseWaitingModal.classList.add("view-hidden");
+    if (this.dom.pauseRequestModal) this.dom.pauseRequestModal.classList.add("view-hidden");
+
+    if (isAutoResume && this.dom.mandatoryNotice) {
+      this.dom.mandatoryNotice.textContent = t("pauseAutoResumeNotice");
+      this.dom.mandatoryNotice.classList.remove("view-hidden");
+      setTimeout(() => {
+        if (!this.disconnectCountdownTimer && !this.isPaused && this.dom.mandatoryNotice) {
+          this.dom.mandatoryNotice.classList.add("view-hidden");
         }
-      };
+      }, 3000);
+    }
 
-      const dataUrl = generateMatchStatsCanvas(statsData);
+    if (this.isMatchActive() && !this.isGameOver) {
+      this.resumeTurnTimer();
+    }
 
-      // Populate preview modal
-      if (this.dom.screenshotImg) {
-        this.dom.screenshotImg.src = dataUrl;
-      }
-      if (this.dom.screenshotDownloadLink) {
-        this.dom.screenshotDownloadLink.href = dataUrl;
-        const now = new Date();
-        const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
-        this.dom.screenshotDownloadLink.download = `minimal-boardgame-stats-${dateStr}.png`;
-      }
-
-      // Always show preview dialog so mobile users can view/long-press/save
-      if (this.dom.screenshotModal) {
-        this.dom.screenshotModal.classList.remove("view-hidden");
-      }
-
-      // Attempt native Web Share or automatic download
-      await shareOrSaveMatchCard(dataUrl, `minimal-boardgame-stats.png`);
-    } catch (err) {
-      console.error("Screenshot generation failed:", err);
+    if (this.mode === "bot" && this.turn === BLACK && !this.isGameOver) {
+      this.triggerBotTurn();
     }
   }
 }

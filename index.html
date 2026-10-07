@@ -201,7 +201,7 @@
             </div>
             <div class="controls-actions">
               <button id="resign-game-btn" class="btn-secondary" data-i18n="resignBtn">ยอมแพ้</button>
-              <button id="restart-game-btn" class="btn-secondary" data-i18n="restartBtn">เริ่มใหม่</button>
+              <button id="pause-game-btn" class="btn-secondary" data-i18n="pauseBtn">⏸️ พักเกม</button>
               <button id="exit-lobby-btn" class="btn-action" data-i18n="backToLobby">← กลับสู่ล็อบบี้</button>
             </div>
           </div>
@@ -285,26 +285,55 @@
       </div>
 
       <div class="modal-actions">
-        <button id="modal-screenshot-btn" class="btn-action" data-i18n="screenshotBtn">📸 บันทึกภาพสถิติ</button>
         <button id="modal-replay-btn" class="primary-btn" data-i18n="playAgainBtn">เล่นใหม่อีกครั้ง</button>
         <button id="modal-lobby-btn" class="btn-secondary" data-i18n="lobbyReturnBtn">กลับหน้าล็อบบี้</button>
       </div>
     </div>
   </div>
 
-  <!-- Screenshot Preview Modal -->
-  <div id="screenshot-modal" class="modal-overlay view-hidden">
-    <div class="modal-content screenshot-modal-content">
+  <!-- Pause Active Modal -->
+  <div id="pause-modal" class="modal-overlay view-hidden">
+    <div class="modal-content pause-modal-content">
       <div class="modal-header">
-        <h3 data-i18n="screenshotPreviewTitle">ภาพสถิติการแข่งขัน</h3>
-        <p data-i18n="screenshotTip">แตะค้างที่รูปภาพเพื่อบันทึกลงเครื่อง</p>
+        <h2 data-i18n="pauseModalTitle">⏸️ พักเกมชั่วคราว</h2>
+        <p id="pause-modal-desc" data-i18n="pauseModalDesc">เกมหยุดชั่วคราวเป็นเวลา 3 นาที</p>
       </div>
-      <div class="screenshot-img-wrapper">
-        <img id="screenshot-img" alt="Match Stats" />
+      <div class="pause-timer-card">
+        <span class="pause-timer-label" data-i18n="pauseRemainingLabel">เวลาพักที่เหลือ</span>
+        <span id="pause-countdown" class="pause-timer-value">03:00</span>
+        <div class="pause-bar">
+          <div id="pause-bar-fill" class="pause-bar-fill"></div>
+        </div>
       </div>
       <div class="modal-actions">
-        <a id="screenshot-download-link" class="primary-btn" download="minimal-boardgame-stats.png" data-i18n="downloadBtn">ดาวน์โหลดรูป</a>
-        <button id="screenshot-close-btn" class="btn-secondary" data-i18n="closeBtn">ปิด</button>
+        <button id="resume-game-btn" class="primary-btn" data-i18n="resumeBtn">▶️ เล่นต่อ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pause Request Modal (for opponent) -->
+  <div id="pause-request-modal" class="modal-overlay view-hidden">
+    <div class="modal-content pause-modal-content">
+      <div class="modal-header">
+        <h2 data-i18n="pauseRequestTitle">⏸️ คำขอพักเกม</h2>
+        <p id="pause-request-msg">คู่ต่อสู้ขอพักเกม 3 นาที ยินยอมหรือไม่?</p>
+      </div>
+      <div class="modal-actions">
+        <button id="accept-pause-btn" class="primary-btn" data-i18n="acceptBtn">ยินยอม</button>
+        <button id="decline-pause-btn" class="btn-secondary" data-i18n="declineBtn">ปฏิเสธ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pause Waiting Modal (for requester) -->
+  <div id="pause-waiting-modal" class="modal-overlay view-hidden">
+    <div class="modal-content pause-modal-content">
+      <div class="modal-header">
+        <h2 data-i18n="pauseWaitingTitle">⏳ กำลังรอการยินยอม</h2>
+        <p data-i18n="pauseWaitingDesc">ส่งคำขอพักเกม 3 นาทีแล้ว รอคู่ต่อสู้ตอบรับ...</p>
+      </div>
+      <div class="modal-actions">
+        <button id="cancel-pause-btn" class="btn-secondary" data-i18n="cancelBtn">ยกเลิกคำขอ</button>
       </div>
     </div>
   </div>

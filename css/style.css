@@ -974,13 +974,6 @@ main {
   box-sizing: border-box;
 }
 
-#modal-screenshot-btn {
-  flex: 1 1 100%;
-  padding: 0.6rem 0.8rem;
-  font-size: 0.78rem;
-  letter-spacing: 0.02em;
-}
-
 /* Modal Wide & Stats Card */
 .modal-content-wide {
   max-width: 440px;
@@ -1095,34 +1088,58 @@ main {
   letter-spacing: -0.01em;
 }
 
-/* Screenshot Preview Modal */
-.screenshot-modal-content {
-  max-width: 440px;
-  width: min(94vw, 440px);
-  padding: 1.25rem 1rem;
-  gap: 0.85rem;
+/* Pause Modals */
+.pause-modal-content {
+  max-width: 360px;
+  width: min(90vw, 360px);
+  padding: 1.5rem 1.25rem;
+  gap: 1.1rem;
 }
 
-.screenshot-img-wrapper {
-  width: 100%;
-  max-height: 52dvh;
-  overflow: auto;
-  border-radius: 8px;
+.pause-timer-card {
+  background-color: var(--bg-color);
   border: 1px solid var(--surface-border);
-  background-color: #000000;
+  border-radius: 10px;
+  padding: 1.15rem 1rem;
+  width: 100%;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
   align-items: center;
-  padding: 0.4rem;
+  gap: 0.5rem;
   box-sizing: border-box;
 }
 
-#screenshot-img {
-  max-width: 100%;
-  height: auto;
-  border-radius: 6px;
-  display: block;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6);
+.pause-timer-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+}
+
+.pause-timer-value {
+  font-size: 2.4rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-main);
+  line-height: 1;
+}
+
+.pause-bar {
+  width: 100%;
+  height: 6px;
+  background-color: var(--surface-color);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 0.35rem;
+}
+
+.pause-bar-fill {
+  height: 100%;
+  width: 100%;
+  background-color: var(--text-main);
+  transition: width 1s linear;
 }
 
 /* Touch optimization */
@@ -1275,7 +1292,7 @@ button, .square, .piece, .rule-btn, .lang-btn, .icon-btn, .diff-btn {
   }
 
   .modal-content-wide,
-  .screenshot-modal-content {
+  .pause-modal-content {
     padding: 1.1rem 0.75rem;
     gap: 0.75rem;
   }

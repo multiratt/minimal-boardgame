@@ -82,7 +82,8 @@ export const translations = {
 
     controlsHeader: "ปุ่มควบคุม",
     resignBtn: "ยอมแพ้",
-    restartBtn: "เริ่มใหม่",
+    pauseBtn: "⏸️ พักเกม",
+    resumeBtn: "▶️ เล่นต่อ",
     backToLobby: "← กลับสู่ล็อบบี้",
 
     // Rules Details: Checkers
@@ -153,13 +154,19 @@ export const translations = {
     minuteShort: "นาที",
     secondShort: "วิ",
 
-    // Screenshot & Share
-    screenshotBtn: "📸 บันทึกภาพสถิติ",
-    screenshotPreviewTitle: "ภาพสถิติการแข่งขัน",
-    screenshotTip: "แตะค้างที่รูปภาพเพื่อบันทึกลงเครื่อง",
-    downloadBtn: "ดาวน์โหลดรูป",
-    closeBtn: "ปิด",
-    screenshotSuccess: "บันทึกภาพสถิติสำเร็จ!"
+    // Pause Feature
+    pauseModalTitle: "⏸️ พักเกมชั่วคราว",
+    pauseModalDesc: "เกมหยุดชั่วคราวเป็นเวลา 3 นาที",
+    pauseRemainingLabel: "เวลาพักที่เหลือ",
+    pauseRequestTitle: "⏸️ คำขอพักเกม",
+    pauseRequestText: "{name} ขอพักเกม 3 นาที ยินยอมหรือไม่?",
+    pauseWaitingTitle: "⏳ กำลังรอการยินยอม",
+    pauseWaitingDesc: "ส่งคำขอพักเกม 3 นาทีแล้ว รอคู่ต่อสู้ตอบรับ...",
+    acceptBtn: "ยินยอม",
+    declineBtn: "ปฏิเสธ",
+    cancelBtn: "ยกเลิกคำขอ",
+    pauseAutoResumeNotice: "หมดเวลาพัก 3 นาที เริ่มเล่นต่ออัตโนมัติ!",
+    pauseDeclinedNotice: "คู่ต่อสู้ปฏิเสธการขอพักเกม"
   },
   en: {
     // Header
@@ -241,7 +248,8 @@ export const translations = {
 
     controlsHeader: "Game Controls",
     resignBtn: "Resign",
-    restartBtn: "Restart",
+    pauseBtn: "⏸️ Pause",
+    resumeBtn: "▶️ Resume",
     backToLobby: "← Exit to Lobby",
 
     // Rules Details: Checkers
@@ -312,13 +320,19 @@ export const translations = {
     minuteShort: "m",
     secondShort: "s",
 
-    // Screenshot & Share
-    screenshotBtn: "📸 Save Match Card",
-    screenshotPreviewTitle: "Match Statistics Card",
-    screenshotTip: "Long press image to save to your photos",
-    downloadBtn: "Download Image",
-    closeBtn: "Close",
-    screenshotSuccess: "Match card saved successfully!"
+    // Pause Feature
+    pauseModalTitle: "⏸️ Game Paused",
+    pauseModalDesc: "Game is temporarily paused for 3 minutes",
+    pauseRemainingLabel: "Pause Time Remaining",
+    pauseRequestTitle: "⏸️ Pause Request",
+    pauseRequestText: "{name} requested a 3-minute pause. Do you accept?",
+    pauseWaitingTitle: "⏳ Awaiting Consent",
+    pauseWaitingDesc: "Pause request sent. Waiting for opponent...",
+    acceptBtn: "Accept",
+    declineBtn: "Decline",
+    cancelBtn: "Cancel",
+    pauseAutoResumeNotice: "3-minute pause expired. Resuming game automatically!",
+    pauseDeclinedNotice: "Opponent declined pause request"
   }
 };
 

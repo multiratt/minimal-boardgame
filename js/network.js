@@ -456,6 +456,37 @@ export class NetworkManager {
     });
   }
 
+  sendPauseRequest() {
+    if (!this.currentRoomId) return;
+    this.broadcast(ROOM_TOPIC_PREFIX + this.currentRoomId, {
+      type: "ROOM_PAUSE_REQUEST",
+      senderId: this.clientId,
+      senderName: this.getNickname(),
+      roomId: this.currentRoomId
+    });
+  }
+
+  sendPauseResponse(accepted) {
+    if (!this.currentRoomId) return;
+    this.broadcast(ROOM_TOPIC_PREFIX + this.currentRoomId, {
+      type: "ROOM_PAUSE_RESPONSE",
+      senderId: this.clientId,
+      senderName: this.getNickname(),
+      roomId: this.currentRoomId,
+      accepted
+    });
+  }
+
+  sendPauseResume() {
+    if (!this.currentRoomId) return;
+    this.broadcast(ROOM_TOPIC_PREFIX + this.currentRoomId, {
+      type: "ROOM_PAUSE_RESUME",
+      senderId: this.clientId,
+      senderName: this.getNickname(),
+      roomId: this.currentRoomId
+    });
+  }
+
   handleRoomMessage(msg) {
     const { type, roomId, senderId, senderName } = msg;
     if (roomId !== this.currentRoomId) return;
@@ -525,6 +556,24 @@ export class NetworkManager {
       case "ROOM_RESTART":
         if (this.onGameRestarted) {
           this.onGameRestarted();
+        }
+        break;
+
+      case "ROOM_PAUSE_REQUEST":
+        if (senderId !== this.clientId && this.onPauseRequested) {
+          this.onPauseRequested(msg);
+        }
+        break;
+
+      case "ROOM_PAUSE_RESPONSE":
+        if (senderId !== this.clientId && this.onPauseResponded) {
+          this.onPauseResponded(msg);
+        }
+        break;
+
+      case "ROOM_PAUSE_RESUME":
+        if (senderId !== this.clientId && this.onPauseResumed) {
+          this.onPauseResumed(msg);
         }
         break;
 
