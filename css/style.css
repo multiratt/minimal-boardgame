@@ -554,6 +554,17 @@ main {
   animation: urgentTick 1.4s infinite ease-in-out;
 }
 
+.endgame-turn-pill {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.2rem 0.65rem;
+  background-color: #1a2233;
+  color: #72a9fc;
+  border: 1px solid #2e4469;
+  border-radius: 12px;
+  animation: urgentTick 1.6s infinite ease-in-out;
+}
+
 .board-wrapper-fit {
   display: flex;
   justify-content: center;

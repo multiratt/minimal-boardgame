@@ -1,5 +1,6 @@
 // app.js - Universal Minimal Board Games Controller
 // Supports: Thai Checkers, International Checkers, Thai Chess (Makruk), Western Chess
+// With Online waiting state pause & Stalling / Endgame 20-move countdown rule
 
 import {
   BOARD_SIZE,
@@ -12,8 +13,7 @@ import {
   getLegalMoves as getLegalCheckersMoves,
   getMovesForPiece as getCheckersMovesForPiece,
   applyMove as applyCheckersMove,
-  checkGameOver as checkCheckersGameOver,
-  countPieces as countCheckersPieces
+  checkGameOver as checkCheckersGameOver
 } from "./rules.js";
 
 import { getAIMove as getAICheckersMove } from "./ai.js";
@@ -58,7 +58,6 @@ const CROWN_SVG = `
   <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z"/>
 </svg>`;
 
-// Glyphs for Makruk & Western Chess
 const MAKRUK_SYMBOLS = {
   k: "ขุน",
   m: "เม็ด",
@@ -82,12 +81,12 @@ class BoardGameApp {
   constructor() {
     this.network = new NetworkManager();
 
-    // Active mode: "checkers_thai" | "checkers_international" | "chess_makruk" | "chess_western"
+    // Mode: "checkers_thai" | "checkers_international" | "chess_makruk" | "chess_western"
     this.activeMode = localStorage.getItem("board_game_mode") || "checkers_thai";
     this.activeCategory = this.activeMode.startsWith("chess") ? "chess" : "checkers";
     this.botDifficulty = "medium";
 
-    // Board & turn state
+    // Board state
     this.board = null;
     this.chessFen = null;
     this.turn = WHITE;
@@ -95,11 +94,11 @@ class BoardGameApp {
     this.role = "player1";
     this.selectedSquare = null;
     this.legalMovesForSelected = [];
-    this.multiJumpFrom = null; // for Checkers multi-jumps
+    this.multiJumpFrom = null;
     this.isAnimating = false;
     this.isGameOver = false;
 
-    // Timer
+    // Timer state
     this.turnTimeLimit = 30;
     this.timeRemaining = 30;
     this.timerInterval = null;
@@ -108,11 +107,15 @@ class BoardGameApp {
     this.capturedWhite = 0;
     this.capturedBlack = 0;
 
-    // AI Worker for Checkers
+    // Stalling / Repetition 20-move countdown rule
+    this.nonCaptureTurns = 0;
+    this.isEndgameCountdownActive = false;
+    this.endgameMovesRemaining = 20;
+
+    // Worker for Checkers
     this.aiWorker = null;
     this.initWorker();
 
-    // Connect Chess constructor if available
     if (typeof window !== "undefined" && window.Chess) {
       setChessConstructor(window.Chess);
     }
@@ -153,7 +156,6 @@ class BoardGameApp {
       nicknameInput: document.getElementById("nickname-input"),
       saveNameBtn: document.getElementById("save-name-btn"),
 
-      // Category tabs & rule buttons
       tabCheckers: document.getElementById("tab-checkers"),
       tabChess: document.getElementById("tab-chess"),
       checkersOptions: document.getElementById("checkers-options"),
@@ -163,19 +165,17 @@ class BoardGameApp {
       ruleMakrukBtn: document.getElementById("rule-makruk-btn"),
       ruleWesternBtn: document.getElementById("rule-western-btn"),
 
-      // Bot
       startBotBtn: document.getElementById("start-bot-btn"),
       diffBtns: document.querySelectorAll(".diff-btn"),
 
-      // Rooms
       roomsGrid: document.getElementById("rooms-grid"),
       refreshRoomsBtn: document.getElementById("refresh-rooms-btn"),
 
-      // Sidebar
       exitLobbyBtn: document.getElementById("exit-lobby-btn"),
       resignGameBtn: document.getElementById("resign-game-btn"),
       restartGameBtn: document.getElementById("restart-game-btn"),
       matchInfoTitle: document.getElementById("match-info-title"),
+      endgameTurnBadge: document.getElementById("endgame-turn-badge"),
       whitePlayerBox: document.getElementById("white-player-box"),
       blackPlayerBox: document.getElementById("black-player-box"),
       whitePlayerName: document.getElementById("white-player-name"),
@@ -210,8 +210,16 @@ class BoardGameApp {
     return this.activeMode.startsWith("checkers");
   }
 
+  isMatchActive() {
+    if (this.mode === "bot") return true;
+    if (this.mode === "online") {
+      const room = this.network.roomsState[this.network.currentRoomId];
+      return room && room.p1 && room.p2;
+    }
+    return true;
+  }
+
   initEvents() {
-    // Language
     this.dom.langThBtn.addEventListener("click", () => {
       setLang("th");
       this.onLanguageChanged();
@@ -221,27 +229,19 @@ class BoardGameApp {
       this.onLanguageChanged();
     });
 
-    // Sound
     this.dom.soundBtn.addEventListener("click", () => {
       toggleSound();
       this.updateSoundButtonUI();
     });
 
-    // Category tabs
-    this.dom.tabCheckers.addEventListener("click", () => {
-      this.setCategory("checkers");
-    });
-    this.dom.tabChess.addEventListener("click", () => {
-      this.setCategory("chess");
-    });
+    this.dom.tabCheckers.addEventListener("click", () => this.setCategory("checkers"));
+    this.dom.tabChess.addEventListener("click", () => this.setCategory("chess"));
 
-    // Mode buttons
     this.dom.ruleThaiBtn.addEventListener("click", () => this.setMode("checkers_thai"));
     this.dom.ruleIntBtn.addEventListener("click", () => this.setMode("checkers_international"));
     this.dom.ruleMakrukBtn.addEventListener("click", () => this.setMode("chess_makruk"));
     this.dom.ruleWesternBtn.addEventListener("click", () => this.setMode("chess_western"));
 
-    // Nickname save
     this.dom.saveNameBtn.addEventListener("click", () => {
       const name = this.dom.nicknameInput.value.trim();
       if (name) {
@@ -253,7 +253,6 @@ class BoardGameApp {
       }
     });
 
-    // Bot difficulty
     this.dom.diffBtns.forEach(btn => {
       btn.addEventListener("click", () => {
         this.dom.diffBtns.forEach(b => b.classList.remove("active"));
@@ -262,27 +261,21 @@ class BoardGameApp {
       });
     });
 
-    // Start Bot Game
-    this.dom.startBotBtn.addEventListener("click", () => {
-      this.startBotGame();
-    });
-
-    // Refresh Rooms
+    this.dom.startBotBtn.addEventListener("click", () => this.startBotGame());
     this.dom.refreshRoomsBtn.addEventListener("click", () => {
+      this.network.queryLobby();
       this.renderLobbyRooms(this.network.roomsState);
     });
 
-    // Controls
     this.dom.exitLobbyBtn.addEventListener("click", () => this.exitToLobby());
     this.dom.resignGameBtn.addEventListener("click", () => {
-      if (this.isGameOver || this.role === "spectator") return;
+      if (this.isGameOver || this.role === "spectator" || !this.isMatchActive()) return;
       this.handleResign(this.myColor);
     });
     this.dom.restartGameBtn.addEventListener("click", () => {
       this.resetGameRound();
     });
 
-    // Modal
     this.dom.modalReplayBtn.addEventListener("click", () => {
       this.dom.gameOverModal.classList.add("view-hidden");
       this.resetGameRound();
@@ -292,7 +285,7 @@ class BoardGameApp {
       this.exitToLobby();
     });
 
-    // Multiplayer
+    // Multiplayer callbacks
     this.network.onLobbyUpdated = (roomsState) => this.renderLobbyRooms(roomsState);
     this.network.onRoomStateChanged = (room, action, meta) => this.handleOnlineRoomUpdate(room, action, meta);
     this.network.onMoveReceived = (msg) => {
@@ -380,6 +373,9 @@ class BoardGameApp {
         break;
     }
 
+    // Add Stalling rule to every game mode
+    rules.push(t("endgameRuleDesc"));
+
     this.dom.currentRuleBadge.textContent = badgeText;
     this.dom.sidebarRulesList.innerHTML = rules.map(r => `<div>${r}</div>`).join("");
   }
@@ -392,6 +388,9 @@ class BoardGameApp {
     this.updatePieceCounts();
     this.renderSidebarRules();
     this.renderLobbyRooms(this.network.roomsState);
+    if (this.isEndgameCountdownActive) {
+      this.dom.endgameTurnBadge.textContent = t("endgameCountdownBadge").replace("{n}", this.endgameMovesRemaining);
+    }
   }
 
   updateSoundButtonUI() {
@@ -498,9 +497,14 @@ class BoardGameApp {
     this.showGameView();
     this.resetGameRound();
 
+    // If joined as Player 1 and alone, pause timer & show waiting status!
     if (this.role === "player1" && !res.roomState.p2) {
       this.dom.mandatoryNotice.textContent = t("waitingOpponentJoin");
       this.dom.mandatoryNotice.classList.remove("view-hidden");
+      this.stopTurnTimer();
+      this.dom.timerSeconds.textContent = "--";
+      this.dom.timerBarFill.style.width = "100%";
+      this.dom.timerBarFill.classList.remove("timer-danger");
     }
   }
 
@@ -532,11 +536,15 @@ class BoardGameApp {
 
   handleOnlineRoomUpdate(room, action, meta) {
     this.updateOnlinePlayerNames(room);
+
+    // Player 2 joined: Start the match!
     if (action === "join" && meta.role === "player2") {
       this.dom.mandatoryNotice.classList.add("view-hidden");
       if (this.role === "player1") {
         this.network.sendSyncState(this.board, this.turn, this.timeRemaining);
       }
+      // Start the turn timer now that both players are present!
+      this.startTurnTimer();
     } else if (action === "sync" && meta.board) {
       this.board = cloneBoard(meta.board);
       this.turn = meta.turn;
@@ -544,6 +552,9 @@ class BoardGameApp {
       this.renderBoard();
       this.updateTurnUI();
       this.updatePieceCounts();
+      if (this.isMatchActive()) {
+        this.startTurnTimer();
+      }
     }
   }
 
@@ -573,6 +584,12 @@ class BoardGameApp {
     this.capturedWhite = 0;
     this.capturedBlack = 0;
 
+    // Reset stalling rule counters
+    this.nonCaptureTurns = 0;
+    this.isEndgameCountdownActive = false;
+    this.endgameMovesRemaining = 20;
+    this.dom.endgameTurnBadge.classList.add("view-hidden");
+
     switch (this.activeMode) {
       case "checkers_thai":
         this.board = createCheckersBoard(RULE_THAI);
@@ -595,7 +612,16 @@ class BoardGameApp {
     this.renderBoard();
     this.updateTurnUI();
     this.updatePieceCounts();
-    this.startTurnTimer();
+
+    // Only start timer if game is active
+    if (this.isMatchActive()) {
+      this.startTurnTimer();
+    } else {
+      this.stopTurnTimer();
+      this.dom.timerSeconds.textContent = "--";
+      this.dom.timerBarFill.style.width = "100%";
+      this.dom.timerBarFill.classList.remove("timer-danger");
+    }
   }
 
   // --- BOARD RENDERING ---
@@ -629,7 +655,6 @@ class BoardGameApp {
         pieceEl.className = `piece ${piece.color === WHITE ? "piece-white" : "piece-black"}`;
         pieceEl.dataset.id = piece.id;
 
-        // Render piece badge based on game type
         if (this.modeIsCheckers()) {
           if (piece.isKing) pieceEl.innerHTML = CROWN_SVG;
         } else if (this.activeMode === "chess_makruk") {
@@ -644,7 +669,6 @@ class BoardGameApp {
       }
     }
 
-    // Highlight selected & legal moves
     if (this.selectedSquare) {
       const idx = this.selectedSquare.r * BOARD_SIZE + this.selectedSquare.c;
       if (squares[idx]) squares[idx].classList.add("selected");
@@ -660,7 +684,7 @@ class BoardGameApp {
       });
     }
 
-    // Notices (Mandatory Jump or Check)
+    // Notices
     if (this.modeIsCheckers()) {
       const allLegal = getLegalCheckersMoves(this.board, this.turn, this.activeMode === "checkers_thai" ? RULE_THAI : RULE_INTERNATIONAL);
       if (allLegal.isJump && !this.isGameOver) {
@@ -684,9 +708,9 @@ class BoardGameApp {
 
   handleSquareClick(r, c) {
     if (this.isAnimating || this.isGameOver || this.role === "spectator") return;
+    if (!this.isMatchActive()) return;
     if (this.turn !== this.myColor) return;
 
-    // Checkers locked in multi-jump
     if (this.multiJumpFrom) {
       if (r !== this.multiJumpFrom.r || c !== this.multiJumpFrom.c) {
         const move = this.legalMovesForSelected.find(m => m.to.r === r && m.to.c === c);
@@ -697,7 +721,6 @@ class BoardGameApp {
 
     const clickedPiece = this.board[r][c];
 
-    // Clicking own piece to select
     if (clickedPiece && clickedPiece.color === this.turn) {
       let legalMoves = [];
       if (this.modeIsCheckers()) {
@@ -718,7 +741,6 @@ class BoardGameApp {
       }
     }
 
-    // Clicking target square
     if (this.selectedSquare) {
       const move = this.legalMovesForSelected.find(m => m.to.r === r && m.to.c === c);
       if (move) {
@@ -733,7 +755,7 @@ class BoardGameApp {
     }
   }
 
-  // --- KINETIC ANIMATIONS & EXECUTION ---
+  // --- MOVE EXECUTION & STALLING COUNTDOWN ---
   async executeMoveWithAnimation(move, fromRemote = false) {
     this.isAnimating = true;
 
@@ -744,7 +766,7 @@ class BoardGameApp {
     const toSq = squares[toIdx];
     const pieceEl = fromSq ? fromSq.querySelector(".piece") : null;
 
-    // 1. Move Animation
+    // 1. Move animation
     if (pieceEl && fromSq && toSq) {
       const fromRect = fromSq.getBoundingClientRect();
       const toRect = toSq.getBoundingClientRect();
@@ -758,8 +780,9 @@ class BoardGameApp {
       await new Promise(res => setTimeout(res, 270));
     }
 
-    // 2. Capture Shockwave Animation
-    if (move.captured) {
+    // 2. Capture Shockwave animation
+    const hasCapture = !!move.captured;
+    if (hasCapture) {
       const capR = move.captured.r !== undefined ? move.captured.r : move.to.r;
       const capC = move.captured.c !== undefined ? move.captured.c : move.to.c;
       const capIdx = capR * BOARD_SIZE + capC;
@@ -779,6 +802,38 @@ class BoardGameApp {
       if (this.turn === WHITE) this.capturedBlack++;
       else this.capturedWhite++;
       this.updateCapturedUI();
+
+      // PROGRESS MADE: Reset stalling countdown!
+      this.nonCaptureTurns = 0;
+      this.isEndgameCountdownActive = false;
+      this.endgameMovesRemaining = 20;
+      this.dom.endgameTurnBadge.classList.add("view-hidden");
+    } else {
+      // No capture on this move: Increment stalling counter
+      this.nonCaptureTurns++;
+      if (this.nonCaptureTurns >= 10) {
+        this.isEndgameCountdownActive = true;
+        this.endgameMovesRemaining--;
+        this.dom.endgameTurnBadge.textContent = t("endgameCountdownBadge").replace("{n}", Math.max(0, this.endgameMovesRemaining));
+        this.dom.endgameTurnBadge.classList.remove("view-hidden");
+
+        // 20-move limit reached: FINISH GAME AND COUNT PIECES!
+        if (this.endgameMovesRemaining <= 0) {
+          const counts = this.getPieceCounts();
+          let winner = null;
+          let reason = "turn_limit_draw";
+          if (counts.white > counts.black) {
+            winner = WHITE;
+            reason = "turn_limit_white";
+          } else if (counts.black > counts.white) {
+            winner = BLACK;
+            reason = "turn_limit_black";
+          }
+          this.endGame(winner, reason);
+          this.isAnimating = false;
+          return;
+        }
+      }
     }
 
     // 3. Engine Application
@@ -854,15 +909,30 @@ class BoardGameApp {
       this.network.sendMove(move, this.board, this.turn, this.timeRemaining);
     }
 
-    this.startTurnTimer();
+    if (this.isMatchActive()) {
+      this.startTurnTimer();
+    }
 
-    // Check game over
     this.checkCurrentGameOver();
 
-    // Trigger BOT turn if applicable
     if (this.mode === "bot" && this.turn === BLACK && !this.isGameOver) {
       this.triggerBotTurn();
     }
+  }
+
+  getPieceCounts() {
+    if (!this.board) return { white: 0, black: 0 };
+    let white = 0, black = 0;
+    for (let r = 0; r < BOARD_SIZE; r++) {
+      for (let c = 0; c < BOARD_SIZE; c++) {
+        const p = this.board[r][c];
+        if (p) {
+          if (p.color === WHITE) white++;
+          else black++;
+        }
+      }
+    }
+    return { white, black };
   }
 
   checkCurrentGameOver() {
@@ -874,7 +944,6 @@ class BoardGameApp {
     } else if (this.activeMode === "chess_makruk") {
       status = checkMakrukGameOver(this.board, this.turn);
     } else if (this.activeMode === "chess_western") {
-      // Handled via applyChessMove checkmate
       const legal = getLegalChessMoves(this.chessFen);
       if (legal.length === 0) {
         status = { isOver: true, winner: this.turn === WHITE ? BLACK : WHITE, reason: "checkmate" };
@@ -935,22 +1004,9 @@ class BoardGameApp {
   }
 
   updatePieceCounts() {
-    if (!this.board) return;
-    let whiteTotal = 0;
-    let blackTotal = 0;
-
-    for (let r = 0; r < BOARD_SIZE; r++) {
-      for (let c = 0; c < BOARD_SIZE; c++) {
-        const p = this.board[r][c];
-        if (p) {
-          if (p.color === WHITE) whiteTotal++;
-          else blackTotal++;
-        }
-      }
-    }
-
-    this.dom.whitePiecesCount.textContent = whiteTotal;
-    this.dom.blackPiecesCount.textContent = blackTotal;
+    const counts = this.getPieceCounts();
+    this.dom.whitePiecesCount.textContent = counts.white;
+    this.dom.blackPiecesCount.textContent = counts.black;
   }
 
   updateCapturedUI() {
@@ -960,10 +1016,22 @@ class BoardGameApp {
 
   startTurnTimer() {
     this.stopTurnTimer();
+    if (!this.isMatchActive()) {
+      this.dom.timerSeconds.textContent = "--";
+      this.dom.timerBarFill.style.width = "100%";
+      this.dom.timerBarFill.classList.remove("timer-danger");
+      return;
+    }
+
     this.timeRemaining = this.turnTimeLimit;
     this.updateTimerDisplay();
 
     this.timerInterval = setInterval(() => {
+      if (!this.isMatchActive()) {
+        this.stopTurnTimer();
+        return;
+      }
+
       this.timeRemaining--;
       this.updateTimerDisplay();
 
@@ -998,14 +1066,14 @@ class BoardGameApp {
   }
 
   handleTimeout() {
-    if (this.isGameOver) return;
+    if (this.isGameOver || !this.isMatchActive()) return;
     const losingPlayer = this.turn;
     const winningPlayer = losingPlayer === WHITE ? BLACK : WHITE;
     this.endGame(winningPlayer, "timeout");
   }
 
   handleResign(resigningColor) {
-    if (this.isGameOver) return;
+    if (this.isGameOver || !this.isMatchActive()) return;
     const winningColor = resigningColor === WHITE ? BLACK : WHITE;
     if (this.mode === "online") this.network.sendResign(resigningColor);
     this.endGame(winningColor, "resign");
@@ -1028,6 +1096,9 @@ class BoardGameApp {
       case "draw": reasonText = t("reasonStalemate"); break;
       case "timeout": reasonText = t("reasonTimeout"); break;
       case "resign": reasonText = t("reasonResign"); break;
+      case "turn_limit_white": reasonText = t("reasonTurnLimitWhite"); break;
+      case "turn_limit_black": reasonText = t("reasonTurnLimitBlack"); break;
+      case "turn_limit_draw": reasonText = t("reasonTurnLimitDraw"); break;
       case "opponent_left": reasonText = t("opponentDisconnected"); break;
       default: reasonText = "";
     }

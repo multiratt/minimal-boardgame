@@ -1,9 +1,9 @@
 // network.js - Realtime 6-Room Multiplayer & Spectator System
 // Supports both internet-wide MQTT (over Secure WebSockets) and local multi-tab BroadcastChannel
 
-const LOBBY_TOPIC = "minimal_checkers_v2/lobby";
-const ROOM_TOPIC_PREFIX = "minimal_checkers_v2/room/";
-const BROADCAST_CHANNEL_NAME = "minimal_checkers_v2_bc";
+const LOBBY_TOPIC = "minimal_board_games_v3/lobby";
+const ROOM_TOPIC_PREFIX = "minimal_board_games_v3/room/";
+const BROADCAST_CHANNEL_NAME = "minimal_board_games_v3_bc";
 
 const BROKERS = [
   "wss://broker.emqx.io:8084/mqtt",
@@ -46,6 +46,7 @@ export class NetworkManager {
     this.heartbeatInterval = null;
     this.initBroadcastChannel();
     this.connectMQTT();
+    this.startHeartbeatTimer();
   }
 
   setNickname(name) {
@@ -71,27 +72,32 @@ export class NetworkManager {
   }
 
   connectMQTT() {
-    if (typeof window.mqtt === "undefined") {
-      console.warn("MQTT library not loaded yet; using multi-tab channel fallback.");
+    const mqttObj = typeof window !== "undefined" ? window.mqtt : (typeof globalThis !== "undefined" ? globalThis.mqtt : null);
+    if (!mqttObj || typeof mqttObj.connect !== "function") {
+      console.warn("MQTT library not ready; waiting before connect.");
+      setTimeout(() => this.connectMQTT(), 500);
       return;
     }
 
     const brokerUrl = BROKERS[this.currentBrokerIndex];
     try {
-      this.mqttClient = window.mqtt.connect(brokerUrl, {
+      this.mqttClient = mqttObj.connect(brokerUrl, {
         clientId: this.clientId,
         clean: true,
         connectTimeout: 5000,
-        reconnectPeriod: 6000
+        reconnectPeriod: 4000
       });
 
       this.mqttClient.on("connect", () => {
         this.isConnected = true;
-        // Subscribe to lobby
+        // Subscribe to lobby topic
         this.mqttClient.subscribe(LOBBY_TOPIC);
         if (this.currentRoomId) {
           this.mqttClient.subscribe(ROOM_TOPIC_PREFIX + this.currentRoomId);
         }
+
+        // Immediately request active room states from other clients
+        this.queryLobby();
       });
 
       this.mqttClient.on("message", (topic, payload) => {
@@ -105,6 +111,8 @@ export class NetworkManager {
 
       this.mqttClient.on("error", (err) => {
         console.warn("MQTT connection error on", brokerUrl, err.message);
+        // Switch broker on error
+        this.currentBrokerIndex = (this.currentBrokerIndex + 1) % BROKERS.length;
       });
 
       this.mqttClient.on("close", () => {
@@ -116,19 +124,25 @@ export class NetworkManager {
   }
 
   broadcast(topic, payload) {
-    const raw = JSON.stringify(payload);
-    // 1. Send via local BroadcastChannel (instant zero-latency multi-tab sync)
+    // 1. BroadcastChannel (local tabs on same browser)
     if (this.broadcastChannel) {
       try {
         this.broadcastChannel.postMessage({ topic, payload });
       } catch (e) {}
     }
-    // 2. Send via internet MQTT WebSocket
+    // 2. Internet MQTT WebSocket (across different machines)
     if (this.mqttClient && this.isConnected) {
       try {
-        this.mqttClient.publish(topic, raw);
+        this.mqttClient.publish(topic, JSON.stringify(payload));
       } catch (e) {}
     }
+  }
+
+  queryLobby() {
+    this.broadcast(LOBBY_TOPIC, {
+      type: "LOBBY_QUERY",
+      senderId: this.clientId
+    });
   }
 
   handleIncomingRawMessage(source, data) {
@@ -140,14 +154,22 @@ export class NetworkManager {
     }
 
     if (!payload || payload.senderId === this.clientId) {
-      // Ignore echo from self
-      return;
+      return; // Ignore self echo
     }
 
-    // Lobby Heartbeat
-    if (topic === LOBBY_TOPIC && payload.type === "LOBBY_HEARTBEAT") {
-      this.handleLobbyHeartbeat(payload);
-      return;
+    // Lobby events
+    if (topic === LOBBY_TOPIC) {
+      if (payload.type === "LOBBY_HEARTBEAT") {
+        this.handleLobbyHeartbeat(payload);
+        return;
+      }
+      if (payload.type === "LOBBY_QUERY") {
+        // Someone entered the lobby: if we are occupying a room, reply immediately!
+        if (this.currentRoomId && (this.role === "player1" || this.role === "player2")) {
+          this.sendRoomHeartbeat();
+        }
+        return;
+      }
     }
 
     // Room events
@@ -170,15 +192,28 @@ export class NetworkManager {
     }
   }
 
-  startHeartbeat() {
-    this.stopHeartbeat();
+  sendRoomHeartbeat() {
+    if (!this.currentRoomId) return;
+    const state = this.roomsState[this.currentRoomId];
+    this.broadcast(LOBBY_TOPIC, {
+      type: "LOBBY_HEARTBEAT",
+      senderId: this.clientId,
+      roomId: this.currentRoomId,
+      roomState: state
+    });
+  }
+
+  startHeartbeatTimer() {
+    if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
+
     this.heartbeatInterval = setInterval(() => {
-      // Clean stale rooms in lobby
       const now = Date.now();
       let changed = false;
+
+      // 1. Clean stale rooms that haven't sent a heartbeat for 7 seconds
       for (let r = 1; r <= 6; r++) {
         if (r !== this.currentRoomId && this.roomsState[r].status !== "empty") {
-          if (now - this.roomsState[r].lastHeartbeat > 7500) {
+          if (now - this.roomsState[r].lastHeartbeat > 7000) {
             this.roomsState[r] = {
               roomId: r,
               status: "empty",
@@ -192,28 +227,21 @@ export class NetworkManager {
           }
         }
       }
+
       if (changed && this.onLobbyUpdated) {
         this.onLobbyUpdated(this.roomsState);
       }
 
-      // If active in a room, send heartbeat to lobby
+      // 2. If sitting in a room as a player, send periodic heartbeat
       if (this.currentRoomId && (this.role === "player1" || this.role === "player2")) {
-        const state = this.roomsState[this.currentRoomId];
-        this.broadcast(LOBBY_TOPIC, {
-          type: "LOBBY_HEARTBEAT",
-          senderId: this.clientId,
-          roomId: this.currentRoomId,
-          roomState: state
-        });
+        this.sendRoomHeartbeat();
       }
-    }, 2500);
-  }
 
-  stopHeartbeat() {
-    if (this.heartbeatInterval) {
-      clearInterval(this.heartbeatInterval);
-      this.heartbeatInterval = null;
-    }
+      // 3. If in lobby, query occasionally
+      if (!this.currentRoomId) {
+        this.queryLobby();
+      }
+    }, 1800);
   }
 
   joinRoom(roomId, asSpectator = false) {
@@ -240,7 +268,6 @@ export class NetworkManager {
         room.p2 = { id: this.clientId, name: this.getNickname() };
         room.status = "playing";
       } else {
-        // Fallback to spectator if both filled
         this.role = "spectator";
         if (!room.spectatorList.includes(this.clientId)) {
           room.spectatorList.push(this.clientId);
@@ -249,7 +276,7 @@ export class NetworkManager {
       }
     }
 
-    // Broadcast JOIN event
+    // Broadcast JOIN event inside the room
     this.broadcast(ROOM_TOPIC_PREFIX + roomId, {
       type: "ROOM_JOIN",
       senderId: this.clientId,
@@ -258,8 +285,8 @@ export class NetworkManager {
       role: this.role
     });
 
-    // Start heartbeat
-    this.startHeartbeat();
+    // IMMEDIATELY broadcast updated room state to Lobby so other machines see it in 0ms!
+    this.sendRoomHeartbeat();
 
     return {
       roomId,
@@ -284,7 +311,6 @@ export class NetworkManager {
 
     if (this.role === "player1") {
       if (room.p2) {
-        // Promote p2 to p1
         room.p1 = room.p2;
         room.p2 = null;
         room.status = "waiting";
@@ -299,6 +325,14 @@ export class NetworkManager {
       room.spectatorList = room.spectatorList.filter(id => id !== this.clientId);
       room.spectators = room.spectatorList.length;
     }
+
+    // Broadcast updated state to lobby immediately!
+    this.broadcast(LOBBY_TOPIC, {
+      type: "LOBBY_HEARTBEAT",
+      senderId: this.clientId,
+      roomId,
+      roomState: room
+    });
 
     if (this.mqttClient && this.isConnected) {
       this.mqttClient.unsubscribe(ROOM_TOPIC_PREFIX + roomId);
@@ -375,6 +409,7 @@ export class NetworkManager {
             room.spectators = room.spectatorList.length;
           }
         }
+        this.sendRoomHeartbeat();
         if (this.onRoomStateChanged) {
           this.onRoomStateChanged(room, "join", { senderId, senderName, role: msg.role });
         }
@@ -419,6 +454,8 @@ export class NetworkManager {
           room.spectatorList = room.spectatorList.filter(id => id !== senderId);
           room.spectators = room.spectatorList.length;
         }
+
+        this.sendRoomHeartbeat();
 
         if (this.onOpponentLeft) {
           this.onOpponentLeft(senderName);

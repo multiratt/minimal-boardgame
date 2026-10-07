@@ -111,6 +111,10 @@ export const translations = {
     ruleWesternDesc4: "• Pawn เดินหน้า 1 ช่อง (ตาแรกเดินได้ 2) กินทแยงหน้า เลื่อนขั้นแถวสุดท้าย",
     ruleWesternDesc5: "• ชนะเมื่อรุกฆาต (Checkmate) หรือฝ่ายตรงข้ามหมดเวลา",
 
+    // Stalling / Repetition Endgame Rule
+    endgameRuleDesc: "• กติกาเดินหนี: หากไม่มีการกินติดต่อกัน 10 ตาเดิน จะเริ่มนับถอยหลังอีก 20 ตาเดิน หากครบแล้วยังไม่จบจะตัดสินให้ฝ่ายที่มีหมากมากกว่าชนะทันที",
+    endgameCountdownBadge: "⚡ กติกาเดินหนี: บังคับจบเกมในอีก {n} ตาเดิน (ใครหมากเยอะกว่าชนะ)",
+
     // Game Over & Dialogs
     gameOverTitle: "จบเกม!",
     winnerWhite: "ฝ่ายสีขาวชนะ!",
@@ -122,6 +126,9 @@ export const translations = {
     reasonStalemate: "อับ! เสมอกัน (Stalemate)",
     reasonTimeout: "หมดเวลาในตาเดิน",
     reasonResign: "ฝ่ายตรงข้ามขอยอมแพ้",
+    reasonTurnLimitWhite: "หมดกำหนดตาเดิน (ฝ่ายสีขาวมีหมากมากกว่า ชนะ!)",
+    reasonTurnLimitBlack: "หมดกำหนดตาเดิน (ฝ่ายสีดำมีหมากมากกว่า ชนะ!)",
+    reasonTurnLimitDraw: "หมดกำหนดตาเดิน (ทั้งสองฝ่ายมีหมากเท่ากัน เสมอ!)",
     opponentDisconnected: "ฝ่ายตรงข้ามออกจากห้อง",
     playAgainBtn: "เล่นใหม่อีกครั้ง",
     lobbyReturnBtn: "กลับหน้าล็อบบี้",
@@ -236,6 +243,10 @@ export const translations = {
     ruleWesternDesc4: "• Pawn: forward 1 (2 on 1st move), captures diag, promotes at back rank",
     ruleWesternDesc5: "• Win by checkmate or opponent timeout",
 
+    // Stalling / Repetition Endgame Rule
+    endgameRuleDesc: "• Stalling Rule: If 10 consecutive turns pass without any capture, a 20-turn countdown begins. If game doesn't end, player with most pieces wins.",
+    endgameCountdownBadge: "⚡ Stalling Rule: Match ends in {n} moves (Most pieces wins)",
+
     // Game Over & Dialogs
     gameOverTitle: "GAME OVER",
     winnerWhite: "White Wins!",
@@ -247,6 +258,9 @@ export const translations = {
     reasonStalemate: "Stalemate (Draw)",
     reasonTimeout: "Turn timer expired",
     reasonResign: "Opponent resigned",
+    reasonTurnLimitWhite: "Turn limit reached (White has more pieces, Wins!)",
+    reasonTurnLimitBlack: "Turn limit reached (Black has more pieces, Wins!)",
+    reasonTurnLimitDraw: "Turn limit reached (Equal pieces, Draw!)",
     opponentDisconnected: "Opponent left the room",
     playAgainBtn: "Play Again",
     lobbyReturnBtn: "Back to Lobby",
