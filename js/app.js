@@ -35,7 +35,7 @@ import {
   getAIChessMove
 } from "./rules-chess.js";
 
-import { NetworkManager } from "./network.js";
+import { NetworkManager, MAX_ROOMS } from "./network.js";
 import {
   t,
   getLang,
@@ -80,6 +80,18 @@ class BoardGameApp {
     this.turnTimeLimit = 30;
     this.timeRemaining = 30;
     this.timerInterval = null;
+
+    // Game statistics state
+    this.gameStats = {
+      startTime: null,
+      endTime: null,
+      totalMoves: 0,
+      whiteMoves: 0,
+      blackMoves: 0,
+      turnDurations: [],
+      promotions: 0
+    };
+    this.turnStartTime = null;
 
     // Online disconnect countdown state (60s grace period)
     this.disconnectCountdownTimer = null;
@@ -180,6 +192,15 @@ class BoardGameApp {
       modalReplayBtn: document.getElementById("modal-replay-btn"),
       modalLobbyBtn: document.getElementById("modal-lobby-btn"),
 
+      // Match Stats DOM elements
+      modalStatMode: document.getElementById("modal-stat-mode"),
+      statTotalTime: document.getElementById("stat-total-time"),
+      statAvgTime: document.getElementById("stat-avg-time"),
+      statTotalMoves: document.getElementById("stat-total-moves"),
+      statCaptures: document.getElementById("stat-captures"),
+      statPromotions: document.getElementById("stat-promotions"),
+      statResultDetail: document.getElementById("stat-result-detail"),
+
       langThBtn: document.getElementById("lang-th-btn"),
       langEnBtn: document.getElementById("lang-en-btn"),
       soundBtn: document.getElementById("sound-btn"),
@@ -256,11 +277,17 @@ class BoardGameApp {
       this.handleResign(this.myColor);
     });
     this.dom.restartGameBtn.addEventListener("click", () => {
+      if (this.mode === "online") {
+        this.network.sendRestart();
+      }
       this.resetGameRound();
     });
 
     this.dom.modalReplayBtn.addEventListener("click", () => {
       this.dom.gameOverModal.classList.add("view-hidden");
+      if (this.mode === "online") {
+        this.network.sendRestart();
+      }
       this.resetGameRound();
     });
     this.dom.modalLobbyBtn.addEventListener("click", () => {
@@ -272,7 +299,12 @@ class BoardGameApp {
     this.network.onLobbyUpdated = (roomsState) => this.renderLobbyRooms(roomsState);
     this.network.onRoomStateChanged = (room, action, meta) => this.handleOnlineRoomUpdate(room, action, meta);
     this.network.onMoveReceived = (msg) => {
-      if (!this.isGameOver) this.executeMoveWithAnimation(msg.move, true);
+      if (!this.isGameOver) {
+        if (msg.chessFen && this.activeMode === "chess_western") {
+          this.chessFen = msg.chessFen;
+        }
+        this.executeMoveWithAnimation(msg.move, true);
+      }
     };
     this.network.onGameResigned = (resigningColor) => {
       if (!this.isGameOver) {
@@ -397,11 +429,34 @@ class BoardGameApp {
     this.dom.soundText.textContent = on ? t("soundOn") : t("soundOff");
   }
 
+  getRoomModeDisplay(mode) {
+    if (!mode) {
+      return {
+        icon: "🎲",
+        name: t("roomModeOpen"),
+        isEmpty: true
+      };
+    }
+    switch (mode) {
+      case "checkers_thai":
+        return { icon: "⚪", name: t("ruleThaiShort"), isEmpty: false };
+      case "checkers_international":
+        return { icon: "🌐", name: t("ruleIntShort"), isEmpty: false };
+      case "chess_makruk":
+        return { icon: "♟️", name: t("ruleMakrukShort"), isEmpty: false };
+      case "chess_western":
+        return { icon: "👑", name: t("ruleWesternShort"), isEmpty: false };
+      default:
+        return { icon: "🎲", name: mode, isEmpty: false };
+    }
+  }
+
   // --- LOBBY ROOMS ---
   renderLobbyRooms(roomsState) {
     this.dom.roomsGrid.innerHTML = "";
-    for (let r = 1; r <= 6; r++) {
+    for (let r = 1; r <= MAX_ROOMS; r++) {
       const room = roomsState[r];
+      if (!room) continue;
       const card = document.createElement("div");
       card.className = "room-card";
 
@@ -417,11 +472,16 @@ class BoardGameApp {
 
       const p1Name = room.p1 ? room.p1.name : "—";
       const p2Name = room.p2 ? room.p2.name : (room.status === "waiting" ? `(${t("roomWaiting")})` : "—");
+      const modeInfo = this.getRoomModeDisplay(room.mode);
 
       card.innerHTML = `
         <div class="room-header">
           <span class="room-title">${t("room")} ${r}</span>
           <span class="room-badge ${statusBadgeClass}">${statusText}</span>
+        </div>
+        <div class="room-mode-banner ${modeInfo.isEmpty ? 'mode-empty' : ''}">
+          <span class="mode-icon">${modeInfo.icon}</span>
+          <span class="mode-label">${modeInfo.name}</span>
         </div>
         <div class="room-players">
           <div class="player-slot">
@@ -479,7 +539,18 @@ class BoardGameApp {
 
   joinOnlineRoom(roomId, asSpectator = false) {
     this.mode = "online";
-    const res = this.network.joinRoom(roomId, asSpectator);
+    const existingRoom = this.network.roomsState[roomId];
+
+    // If room already has a host and established mode, adopt the room's mode!
+    if (existingRoom && existingRoom.mode) {
+      this.activeMode = existingRoom.mode;
+      localStorage.setItem("board_game_mode", this.activeMode);
+      this.activeCategory = this.activeMode.startsWith("chess") ? "chess" : "checkers";
+      this.updateCategoryTabsUI();
+      this.updateModeButtonsUI();
+    }
+
+    const res = this.network.joinRoom(roomId, asSpectator, this.activeMode);
     this.role = res.role;
 
     if (this.role === "player1") this.myColor = WHITE;
@@ -535,21 +606,37 @@ class BoardGameApp {
   handleOnlineRoomUpdate(room, action, meta) {
     this.updateOnlinePlayerNames(room);
 
-    // Player 2 joined: Start the match!
-    if (action === "join" && meta.role === "player2") {
-      this.dom.mandatoryNotice.classList.add("view-hidden");
+    // If spectator or player 2 joins and we are player 1, send full sync state
+    if (action === "join") {
       if (this.role === "player1") {
-        this.network.sendSyncState(this.board, this.turn, this.timeRemaining);
+        this.network.sendSyncState(this.board, this.turn, this.timeRemaining, this.activeMode, this.chessFen);
       }
-      // Start the turn timer now that both players are present!
-      this.startTurnTimer();
+      if (meta.role === "player2") {
+        this.dom.mandatoryNotice.classList.add("view-hidden");
+        if (!this.gameStats.startTime) this.gameStats.startTime = Date.now();
+        this.turnStartTime = Date.now();
+        this.startTurnTimer();
+      }
     } else if (action === "sync" && meta.board) {
+      if (meta.mode && meta.mode !== this.activeMode) {
+        this.activeMode = meta.mode;
+        localStorage.setItem("board_game_mode", this.activeMode);
+        this.activeCategory = this.activeMode.startsWith("chess") ? "chess" : "checkers";
+        this.updateCategoryTabsUI();
+        this.updateModeButtonsUI();
+      }
+      if (meta.chessFen) {
+        this.chessFen = meta.chessFen;
+      }
       this.board = cloneBoard(meta.board);
       this.turn = meta.turn;
       this.timeRemaining = meta.timeRemaining || 30;
+      this.updateMatchTitle(this.network.currentRoomId);
       this.renderBoard();
       this.updateTurnUI();
       this.updatePieceCounts();
+      if (!this.gameStats.startTime) this.gameStats.startTime = Date.now();
+      this.turnStartTime = Date.now();
       if (this.isMatchActive()) {
         this.startTurnTimer();
       }
@@ -584,6 +671,18 @@ class BoardGameApp {
     this.capturedWhite = 0;
     this.capturedBlack = 0;
 
+    // Reset statistics
+    this.gameStats = {
+      startTime: this.isMatchActive() ? Date.now() : null,
+      endTime: null,
+      totalMoves: 0,
+      whiteMoves: 0,
+      blackMoves: 0,
+      turnDurations: [],
+      promotions: 0
+    };
+    this.turnStartTime = this.isMatchActive() ? Date.now() : null;
+
     // Reset stalling rule counters
     this.nonCaptureTurns = 0;
     this.isEndgameCountdownActive = false;
@@ -612,6 +711,10 @@ class BoardGameApp {
     this.renderBoard();
     this.updateTurnUI();
     this.updatePieceCounts();
+
+    if (this.mode === "online" && this.role === "player1") {
+      this.network.sendSyncState(this.board, this.turn, this.timeRemaining, this.activeMode, this.chessFen);
+    }
 
     // Only start timer if game is active
     if (this.isMatchActive()) {
@@ -750,6 +853,23 @@ class BoardGameApp {
   async executeMoveWithAnimation(move, fromRemote = false) {
     this.isAnimating = true;
 
+    // Track statistics
+    if (!this.gameStats.startTime) {
+      this.gameStats.startTime = Date.now();
+    }
+    if (this.turnStartTime) {
+      const duration = Math.max(0.5, (Date.now() - this.turnStartTime) / 1000);
+      this.gameStats.turnDurations.push(duration);
+    }
+    this.turnStartTime = Date.now();
+
+    this.gameStats.totalMoves++;
+    if (this.turn === WHITE) {
+      this.gameStats.whiteMoves++;
+    } else {
+      this.gameStats.blackMoves++;
+    }
+
     const fromIdx = move.from.r * BOARD_SIZE + move.from.c;
     const toIdx = move.to.r * BOARD_SIZE + move.to.c;
     const squares = this.dom.boardContainer.children;
@@ -856,6 +976,7 @@ class BoardGameApp {
 
     // Promotion Animation
     if (promoted) {
+      this.gameStats.promotions++;
       playKing();
       this.renderBoard();
       const newPieceEl = toSq ? toSq.querySelector(".piece") : null;
@@ -897,7 +1018,7 @@ class BoardGameApp {
     this.isAnimating = false;
 
     if (this.mode === "online" && !fromRemote) {
-      this.network.sendMove(move, this.board, this.turn, this.timeRemaining);
+      this.network.sendMove(move, this.board, this.turn, this.timeRemaining, this.chessFen);
     }
 
     if (this.isMatchActive()) {
@@ -1014,6 +1135,13 @@ class BoardGameApp {
       return;
     }
 
+    if (!this.turnStartTime) {
+      this.turnStartTime = Date.now();
+    }
+    if (!this.gameStats.startTime) {
+      this.gameStats.startTime = Date.now();
+    }
+
     this.timeRemaining = this.turnTimeLimit;
     this.updateTimerDisplay();
 
@@ -1116,7 +1244,7 @@ class BoardGameApp {
       }, 2500);
 
       if (this.role === "player1") {
-        this.network.sendSyncState(this.board, this.turn, this.timeRemaining);
+        this.network.sendSyncState(this.board, this.turn, this.timeRemaining, this.activeMode, this.chessFen);
       }
 
       if (this.isMatchActive() && !this.isGameOver) {
@@ -1153,6 +1281,44 @@ class BoardGameApp {
 
     this.dom.modalWinnerTitle.textContent = winnerText;
     this.dom.modalWinnerReason.textContent = reasonText;
+
+    // Calculate & Display Match Statistics
+    this.gameStats.endTime = Date.now();
+    const start = this.gameStats.startTime || this.gameStats.endTime;
+    const totalSecs = Math.max(1, Math.round((this.gameStats.endTime - start) / 1000));
+    const mins = Math.floor(totalSecs / 60);
+    const secs = totalSecs % 60;
+    const formattedTotalTime = mins > 0 
+      ? `${mins} ${t("minuteShort")} ${secs} ${t("secondShort")}` 
+      : `${secs} ${t("secondShort")}`;
+
+    const durations = this.gameStats.turnDurations;
+    const avgSecs = durations.length > 0 
+      ? (durations.reduce((sum, d) => sum + d, 0) / durations.length).toFixed(1)
+      : (totalSecs / Math.max(1, this.gameStats.totalMoves)).toFixed(1);
+
+    const formattedTotalMoves = `${this.gameStats.totalMoves} ${t("statMovesUnit")}` +
+      (this.gameStats.totalMoves > 0 ? ` (${t("statWhiteShort")} ${this.gameStats.whiteMoves} / ${t("statBlackShort")} ${this.gameStats.blackMoves})` : "");
+
+    const formattedCaptures = `${t("statWhiteShort")} ${this.capturedBlack} / ${t("statBlackShort")} ${this.capturedWhite}`;
+    const formattedPromotions = `${this.gameStats.promotions} ${t("statPromotionsUnit")}`;
+
+    let modeName = "";
+    switch (this.activeMode) {
+      case "checkers_thai": modeName = t("ruleThaiShort"); break;
+      case "checkers_international": modeName = t("ruleIntShort"); break;
+      case "chess_makruk": modeName = t("ruleMakrukShort"); break;
+      case "chess_western": modeName = t("ruleWesternShort"); break;
+    }
+
+    if (this.dom.modalStatMode) this.dom.modalStatMode.textContent = modeName;
+    if (this.dom.statTotalTime) this.dom.statTotalTime.textContent = formattedTotalTime;
+    if (this.dom.statAvgTime) this.dom.statAvgTime.textContent = `${avgSecs} ${t("secondShort")}`;
+    if (this.dom.statTotalMoves) this.dom.statTotalMoves.textContent = formattedTotalMoves;
+    if (this.dom.statCaptures) this.dom.statCaptures.textContent = formattedCaptures;
+    if (this.dom.statPromotions) this.dom.statPromotions.textContent = formattedPromotions;
+    if (this.dom.statResultDetail) this.dom.statResultDetail.textContent = winnerText;
+
     this.dom.gameOverModal.classList.remove("view-hidden");
   }
 }

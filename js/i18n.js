@@ -45,9 +45,10 @@ export const translations = {
     diffHard: "ยาก",
     playBotBtn: "เริ่มเล่นกับบอท",
 
-    multiplayerSection: "ห้องเล่นออนไลน์สด (6 ห้อง)",
+    multiplayerSection: "ห้องเล่นออนไลน์สด (4 ห้อง)",
     refreshRooms: "รีเฟรชสถานะ",
     room: "ห้อง",
+    roomModeOpen: "รอเลือกกติกา (ตามผู้สร้าง)",
     roomEmpty: "ห้องว่าง",
     roomWaiting: "รอผู้เล่นคนที่ 2",
     roomPlaying: "กำลังแข่งขัน",
@@ -135,7 +136,22 @@ export const translations = {
     opponentDisconnected: "ฝ่ายตรงข้ามออกจากห้อง",
     playAgainBtn: "เล่นใหม่อีกครั้ง",
     lobbyReturnBtn: "กลับหน้าล็อบบี้",
-    waitingOpponentJoin: "กำลังรอผู้เล่นคนที่ 2 เข้าร่วมห้อง..."
+    waitingOpponentJoin: "กำลังรอผู้เล่นคนที่ 2 เข้าร่วมห้อง...",
+
+    // Match Statistics Modal
+    matchStatsTitle: "📊 สรุปสถิติการแข่งขัน",
+    statTotalTime: "เวลาทั้งเกม",
+    statAvgTime: "เฉลี่ยต่อตา",
+    statTotalMoves: "เดินทั้งหมด",
+    statMovesUnit: "ตา",
+    statCaptures: "หมากที่ถูกกิน",
+    statPromotions: "เลื่อนขั้น/หงาย",
+    statPromotionsUnit: "ครั้ง",
+    statResultDetail: "ผลการตัดสิน",
+    statWhiteShort: "ขาว",
+    statBlackShort: "ดำ",
+    minuteShort: "นาที",
+    secondShort: "วิ"
   },
   en: {
     // Header
@@ -180,9 +196,10 @@ export const translations = {
     diffHard: "Hard",
     playBotBtn: "Start Match vs BOT",
 
-    multiplayerSection: "ONLINE LIVE ROOMS (6 ROOMS)",
+    multiplayerSection: "ONLINE LIVE ROOMS (4 ROOMS)",
     refreshRooms: "Refresh Rooms",
     room: "Room",
+    roomModeOpen: "Open (Host chooses)",
     roomEmpty: "Empty",
     roomWaiting: "Waiting for Player 2",
     roomPlaying: "In Progress",
@@ -270,7 +287,22 @@ export const translations = {
     opponentDisconnected: "Opponent left the room",
     playAgainBtn: "Play Again",
     lobbyReturnBtn: "Back to Lobby",
-    waitingOpponentJoin: "Waiting for Player 2 to join..."
+    waitingOpponentJoin: "Waiting for Player 2 to join...",
+
+    // Match Statistics Modal
+    matchStatsTitle: "📊 Match Statistics",
+    statTotalTime: "Total Match Time",
+    statAvgTime: "Avg Time / Turn",
+    statTotalMoves: "Total Moves",
+    statMovesUnit: "moves",
+    statCaptures: "Captured Pieces",
+    statPromotions: "Promotions",
+    statPromotionsUnit: "times",
+    statResultDetail: "Match Result",
+    statWhiteShort: "White",
+    statBlackShort: "Black",
+    minuteShort: "m",
+    secondShort: "s"
   }
 };
 

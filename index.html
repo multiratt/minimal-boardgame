@@ -100,15 +100,15 @@
         <button id="start-bot-btn" class="primary-btn" data-i18n="playBotBtn">เริ่มเล่นกับบอท</button>
       </div>
 
-      <!-- Multiplayer 6 Rooms Section -->
+      <!-- Multiplayer 4 Rooms Section -->
       <div class="multiplayer-section">
         <div class="section-header">
-          <h2 data-i18n="multiplayerSection">ห้องเล่นออนไลน์สด (6 ห้อง)</h2>
+          <h2 data-i18n="multiplayerSection">ห้องเล่นออนไลน์สด (4 ห้อง)</h2>
           <button id="refresh-rooms-btn" class="btn-secondary" data-i18n="refreshRooms">รีเฟรชสถานะ</button>
         </div>
 
         <div id="rooms-grid" class="rooms-grid">
-          <!-- Room cards 1-6 generated via JS -->
+          <!-- Room cards 1-4 generated via JS -->
         </div>
       </div>
     </section>
@@ -226,9 +226,64 @@
 
   <!-- Game Over Modal -->
   <div id="game-over-modal" class="modal-overlay view-hidden">
-    <div class="modal-content">
-      <h2 id="modal-winner-title" data-i18n="gameOverTitle">จบเกม!</h2>
-      <p id="modal-winner-reason">ฝ่ายสีขาวชนะ!</p>
+    <div class="modal-content modal-content-wide">
+      <div class="modal-header">
+        <h2 id="modal-winner-title" data-i18n="gameOverTitle">จบเกม!</h2>
+        <p id="modal-winner-reason">ฝ่ายสีขาวชนะ!</p>
+      </div>
+
+      <!-- Match Stats Container -->
+      <div class="modal-stats-card">
+        <div class="stats-header">
+          <span class="stats-title" data-i18n="matchStatsTitle">📊 สรุปสถิติการแข่งขัน</span>
+          <span id="modal-stat-mode" class="stats-mode-badge">หมากฮอสไทย</span>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-item">
+            <span class="stat-icon">⏱️</span>
+            <div class="stat-text">
+              <span class="stat-label" data-i18n="statTotalTime">เวลาทั้งเกม</span>
+              <span id="stat-total-time" class="stat-value">00:00</span>
+            </div>
+          </div>
+          <div class="stat-item">
+            <span class="stat-icon">⚡</span>
+            <div class="stat-text">
+              <span class="stat-label" data-i18n="statAvgTime">เฉลี่ยต่อตา</span>
+              <span id="stat-avg-time" class="stat-value">0.0 วิ</span>
+            </div>
+          </div>
+          <div class="stat-item">
+            <span class="stat-icon">🎯</span>
+            <div class="stat-text">
+              <span class="stat-label" data-i18n="statTotalMoves">เดินทั้งหมด</span>
+              <span id="stat-total-moves" class="stat-value">0 ตา</span>
+            </div>
+          </div>
+          <div class="stat-item">
+            <span class="stat-icon">💥</span>
+            <div class="stat-text">
+              <span class="stat-label" data-i18n="statCaptures">หมากที่ถูกกิน</span>
+              <span id="stat-captures" class="stat-value">0 / 0</span>
+            </div>
+          </div>
+          <div class="stat-item">
+            <span class="stat-icon">👑</span>
+            <div class="stat-text">
+              <span class="stat-label" data-i18n="statPromotions">เลื่อนขั้น/หงาย</span>
+              <span id="stat-promotions" class="stat-value">0 ครั้ง</span>
+            </div>
+          </div>
+          <div class="stat-item">
+            <span class="stat-icon">🏆</span>
+            <div class="stat-text">
+              <span class="stat-label" data-i18n="statResultDetail">ผลการตัดสิน</span>
+              <span id="stat-result-detail" class="stat-value">—</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="modal-actions">
         <button id="modal-replay-btn" class="primary-btn" data-i18n="playAgainBtn">เล่นใหม่อีกครั้ง</button>
         <button id="modal-lobby-btn" class="btn-secondary" data-i18n="lobbyReturnBtn">กลับหน้าล็อบบี้</button>

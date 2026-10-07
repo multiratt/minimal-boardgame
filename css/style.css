@@ -407,6 +407,30 @@ main {
   border: 1px solid #452424;
 }
 
+.room-mode-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  background-color: var(--bg-color);
+  border: 1px solid var(--surface-border);
+  padding: 0.35rem 0.65rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.room-mode-banner .mode-icon {
+  font-size: 0.85rem;
+}
+
+.room-mode-banner.mode-empty {
+  color: var(--text-muted);
+  font-weight: 400;
+  font-style: italic;
+  border-style: dashed;
+}
+
 .room-players {
   display: flex;
   flex-direction: column;
@@ -923,6 +947,101 @@ main {
   gap: 0.65rem;
   width: 100%;
   justify-content: center;
+}
+
+/* Modal Wide & Stats Card */
+.modal-content-wide {
+  max-width: 440px;
+  width: 92%;
+  padding: 1.5rem 1.35rem;
+  gap: 1rem;
+}
+
+.modal-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.modal-stats-card {
+  background-color: var(--bg-color);
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  padding: 0.85rem 0.95rem;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  text-align: left;
+}
+
+.stats-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--surface-border);
+  padding-bottom: 0.45rem;
+}
+
+.stats-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.stats-mode-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  background-color: var(--surface-color);
+  border: 1px solid var(--surface-border);
+  padding: 0.15rem 0.5rem;
+  border-radius: 12px;
+  color: var(--text-main);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem 0.75rem;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  background-color: var(--surface-color);
+  padding: 0.45rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.stat-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.stat-text {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.stat-label {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.stat-value {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Touch optimization */

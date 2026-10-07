@@ -1,9 +1,10 @@
-// network.js - Realtime 6-Room Multiplayer & Spectator System
+// network.js - Realtime 4-Room Multiplayer & Spectator System
 // Supports both internet-wide MQTT (over Secure WebSockets) and local multi-tab BroadcastChannel
 
-const LOBBY_TOPIC = "minimal_board_games_v3/lobby";
-const ROOM_TOPIC_PREFIX = "minimal_board_games_v3/room/";
-const BROADCAST_CHANNEL_NAME = "minimal_board_games_v3_bc";
+export const MAX_ROOMS = 4;
+const LOBBY_TOPIC = "minimal_board_games_v4/lobby";
+const ROOM_TOPIC_PREFIX = "minimal_board_games_v4/room/";
+const BROADCAST_CHANNEL_NAME = "minimal_board_games_v4_bc";
 
 const BROKERS = [
   "wss://broker.emqx.io:8084/mqtt",
@@ -31,12 +32,13 @@ export class NetworkManager {
     this.isConnected = false;
     this.currentBrokerIndex = 0;
 
-    // Room registry (Rooms 1 to 6)
+    // Room registry (Rooms 1 to 4)
     this.roomsState = {};
-    for (let i = 1; i <= 6; i++) {
+    for (let i = 1; i <= MAX_ROOMS; i++) {
       this.roomsState[i] = {
         roomId: i,
         status: "empty", // "empty", "waiting", "playing"
+        mode: null,      // "checkers_thai" | "checkers_international" | "chess_makruk" | "chess_western"
         p1: null,        // { id, name }
         p2: null,        // { id, name }
         spectators: 0,
@@ -194,7 +196,7 @@ export class NetworkManager {
 
   handleLobbyHeartbeat(data) {
     const { roomId, roomState } = data;
-    if (roomId >= 1 && roomId <= 6 && roomState) {
+    if (roomId >= 1 && roomId <= MAX_ROOMS && roomState) {
       this.roomsState[roomId] = {
         ...this.roomsState[roomId],
         ...roomState,
@@ -225,12 +227,13 @@ export class NetworkManager {
       let changed = false;
 
       // 1. Clean stale rooms that haven't sent a heartbeat for 7 seconds
-      for (let r = 1; r <= 6; r++) {
+      for (let r = 1; r <= MAX_ROOMS; r++) {
         if (r !== this.currentRoomId && this.roomsState[r].status !== "empty") {
           if (now - this.roomsState[r].lastHeartbeat > 7000) {
             this.roomsState[r] = {
               roomId: r,
               status: "empty",
+              mode: null,
               p1: null,
               p2: null,
               spectators: 0,
@@ -278,12 +281,16 @@ export class NetworkManager {
     }, 1800);
   }
 
-  joinRoom(roomId, asSpectator = false) {
+  joinRoom(roomId, asSpectator = false, gameMode = null) {
     this.currentRoomId = roomId;
     const room = this.roomsState[roomId];
 
     if (this.mqttClient && this.isConnected) {
       this.mqttClient.subscribe(ROOM_TOPIC_PREFIX + roomId);
+    }
+
+    if (!room.mode && gameMode) {
+      room.mode = gameMode;
     }
 
     if (asSpectator) {
@@ -296,6 +303,7 @@ export class NetworkManager {
       if (room.p1 && room.p1.id === this.clientId) {
         this.role = "player1";
         room.p1.name = this.getNickname();
+        if (gameMode && !room.mode) room.mode = gameMode;
       } else if (room.p2 && room.p2.id === this.clientId) {
         this.role = "player2";
         room.p2.name = this.getNickname();
@@ -303,6 +311,7 @@ export class NetworkManager {
         this.role = "player1";
         room.p1 = { id: this.clientId, name: this.getNickname() };
         room.status = room.p2 ? "playing" : "waiting";
+        if (gameMode) room.mode = gameMode;
       } else if (!room.p2 && room.p1.id !== this.clientId) {
         this.role = "player2";
         room.p2 = { id: this.clientId, name: this.getNickname() };
@@ -327,7 +336,8 @@ export class NetworkManager {
       senderId: this.clientId,
       senderName: this.getNickname(),
       roomId,
-      role: this.role
+      role: this.role,
+      mode: room.mode || gameMode
     });
 
     // IMMEDIATELY broadcast updated room state to Lobby so other machines see it in 0ms!
@@ -365,10 +375,12 @@ export class NetworkManager {
       } else {
         room.p1 = null;
         room.status = "empty";
+        room.mode = null;
       }
     } else if (this.role === "player2") {
       room.p2 = null;
       room.status = room.p1 ? "waiting" : "empty";
+      if (!room.p1) room.mode = null;
     } else if (this.role === "spectator") {
       room.spectatorList = room.spectatorList.filter(id => id !== this.clientId);
       room.spectators = room.spectatorList.length;
@@ -394,7 +406,7 @@ export class NetworkManager {
     }
   }
 
-  sendMove(move, newBoard, nextTurn, timeRemaining) {
+  sendMove(move, newBoard, nextTurn, timeRemaining, chessFen = null) {
     if (!this.currentRoomId) return;
 
     this.broadcast(ROOM_TOPIC_PREFIX + this.currentRoomId, {
@@ -404,12 +416,14 @@ export class NetworkManager {
       move,
       board: newBoard,
       nextTurn,
-      timeRemaining
+      timeRemaining,
+      chessFen
     });
   }
 
-  sendSyncState(board, turn, timeRemaining) {
+  sendSyncState(board, turn, timeRemaining, mode = null, chessFen = null) {
     if (!this.currentRoomId) return;
+    const currentMode = mode || (this.roomsState[this.currentRoomId] ? this.roomsState[this.currentRoomId].mode : null);
     this.broadcast(ROOM_TOPIC_PREFIX + this.currentRoomId, {
       type: "ROOM_SYNC",
       senderId: this.clientId,
@@ -417,7 +431,9 @@ export class NetworkManager {
       roomState: this.roomsState[this.currentRoomId],
       board,
       turn,
-      timeRemaining
+      timeRemaining,
+      mode: currentMode,
+      chessFen
     });
   }
 
@@ -461,6 +477,9 @@ export class NetworkManager {
         break;
 
       case "ROOM_JOIN":
+        if (msg.mode && !room.mode) {
+          room.mode = msg.mode;
+        }
         if (msg.role === "player1") {
           room.p1 = { id: senderId, name: senderName };
           if (room.p2) room.status = "playing";
@@ -475,13 +494,16 @@ export class NetworkManager {
         }
         this.sendRoomHeartbeat();
         if (this.onRoomStateChanged) {
-          this.onRoomStateChanged(room, "join", { senderId, senderName, role: msg.role });
+          this.onRoomStateChanged(room, "join", { senderId, senderName, role: msg.role, mode: msg.mode || room.mode });
         }
         break;
 
       case "ROOM_SYNC":
         if (msg.roomState) {
           this.roomsState[roomId] = { ...this.roomsState[roomId], ...msg.roomState };
+        }
+        if (msg.mode) {
+          this.roomsState[roomId].mode = msg.mode;
         }
         if (this.onRoomStateChanged) {
           this.onRoomStateChanged(this.roomsState[roomId], "sync", msg);

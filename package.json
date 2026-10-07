@@ -1,7 +1,7 @@
 {
   "name": "minimal-checkers",
   "version": "1.0.0",
-  "description": "Minimal monochrome standard checkers web app with smooth animations, AI bot, and 6-room multiplayer",
+  "description": "Minimal monochrome standard checkers and chess web app with smooth animations, AI bot, and 4-room multiplayer",
   "type": "module",
   "scripts": {
     "start": "python3 -m http.server 8080"
