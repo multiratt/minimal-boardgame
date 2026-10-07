@@ -633,11 +633,11 @@ class BoardGameApp {
         rules = [t("ruleOthelloDesc1"), t("ruleOthelloDesc2"), t("ruleOthelloDesc3"), t("ruleOthelloDesc4"), t("ruleOthelloDesc5")];
         break;
       case "uno_standard":
-        badgeText = t("ruleUnoShort") + " (Standard)";
+        badgeText = t("ruleUnoStandardBadge");
         rules = [t("ruleUnoDesc1"), t("ruleUnoDesc2"), t("ruleUnoStandardDesc"), t("ruleUnoDesc3"), t("ruleUnoDesc4"), t("ruleUnoDesc5")];
         break;
       case "uno_stacking":
-        badgeText = t("ruleUnoShort") + " (Stacking)";
+        badgeText = t("ruleUnoStackingBadge");
         rules = [t("ruleUnoDesc1"), t("ruleUnoDesc2"), t("ruleUnoStackingDesc"), t("ruleUnoDesc3"), t("ruleUnoDesc4"), t("ruleUnoDesc5")];
         break;
     }
@@ -659,6 +659,10 @@ class BoardGameApp {
     this.updatePieceCounts();
     this.renderSidebarRules();
     this.renderLobbyRooms(this.network.roomsState);
+    this.updateUnoBotCountDisplay();
+    if (this.modeIsUno()) {
+      this.renderUnoTable();
+    }
     if (this.mode === "bot") {
       this.updateBotPlayerNames();
     } else if (this.mode === "online") {
@@ -669,6 +673,19 @@ class BoardGameApp {
     }
     if (this.disconnectCountdownTimer) {
       this.updateDisconnectNotice();
+    }
+    if (this.dom.unoWaitingModal && !this.dom.unoWaitingModal.classList.contains("view-hidden")) {
+      const room = this.network.roomsState[this.network.currentRoomId];
+      if (room && room.players) {
+        this.renderUnoWaitingModal(room.players);
+      }
+    }
+    if (this.isGameOver && this.dom.gameOverModal && !this.dom.gameOverModal.classList.contains("view-hidden")) {
+      if (this.modeIsUno()) {
+        this.endUnoGame(this.unoWinnerIndex ?? 0, true);
+      } else {
+        this.endGame(this.gameWinner, this.gameReason, true);
+      }
     }
   }
 
@@ -721,7 +738,7 @@ class BoardGameApp {
         statusBadgeClass = "badge-waiting";
         const pCount = (room.players && room.players.length > 0) ? room.players.length : (room.p1 ? 1 : 0);
         if (room.mode && room.mode.startsWith("uno")) {
-          statusText = `${t("roomWaiting")} (${pCount}/8)`;
+          statusText = `${t("unoRoomWaiting")} (${pCount}/8)`;
         } else {
           statusText = t("roomWaiting");
         }
@@ -748,7 +765,7 @@ class BoardGameApp {
             <div class="player-slot" style="grid-column: 1 / -1; font-size: 0.76rem;">
               <span class="player-dot dot-white"></span>
               <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                ${room.players.map(p => `${p.isHost ? '👑' : (p.isBot ? '🤖' : '👤')} ${p.name}`).join(' • ')}
+                ${room.players.map(p => `${p.isHost ? '👑' : (p.isBot ? '🤖' : '👤')} ${p.isBot ? `${t("botName")} ${p.botNum || ''}`.trim() : p.name}`).join(' • ')}
               </span>
             </div>
           ` : `
@@ -804,7 +821,8 @@ class BoardGameApp {
       for (let i = 1; i <= this.unoBotCount; i++) {
         this.unoPlayers.push({
           id: `bot_${i}`,
-          name: `BOT ${i}`,
+          botNum: i,
+          name: `${t("botName")} ${i}`,
           isBot: true,
           isHost: false
         });
@@ -1823,12 +1841,16 @@ class BoardGameApp {
     }
   }
 
-  endGame(winner, reason) {
+  endGame(winner, reason, isLanguageUpdate = false) {
     this.isGameOver = true;
+    this.gameWinner = winner;
+    this.gameReason = reason;
     this.stopTurnTimer();
     this.clearDisconnectCountdown();
     this.clearPauseSession();
-    playVictory();
+    if (!isLanguageUpdate) {
+      playVictory();
+    }
 
     let winnerText = winner === WHITE ? t("winnerWhite") : t("winnerBlack");
     if (!winner) winnerText = t("drawGame");
@@ -1855,7 +1877,9 @@ class BoardGameApp {
     this.dom.modalWinnerReason.textContent = reasonText;
 
     // Calculate & Display Match Statistics
-    this.gameStats.endTime = Date.now();
+    if (!isLanguageUpdate) {
+      this.gameStats.endTime = Date.now();
+    }
     const start = this.gameStats.startTime || this.gameStats.endTime;
     const totalSecs = Math.max(1, Math.round((this.gameStats.endTime - start) / 1000));
     const mins = Math.floor(totalSecs / 60);
@@ -2142,14 +2166,15 @@ class BoardGameApp {
       const row = document.createElement("div");
       row.className = `uno-waiting-player-row ${p.isHost ? 'is-host' : ''}`;
       const isYou = p.id === this.network.clientId;
+      const pName = p.isBot ? `${t("botName")} ${p.botNum || (idx + 1)}` : p.name;
       row.innerHTML = `
         <div style="display: flex; align-items: center; gap: 0.5rem;">
           <span>${p.isBot ? '🤖' : '👤'}</span>
-          <strong>${p.name}</strong>
+          <strong>${pName}</strong>
           ${isYou ? `<span style="font-size: 0.72rem; color: var(--accent-white); font-weight: 700;">(${t("youLabel")})</span>` : ''}
         </div>
         <div>
-          ${p.isHost ? `<span style="font-size: 0.72rem; background: rgba(255,255,255,0.15); padding: 0.15rem 0.45rem; border-radius: 6px;">👑 Host</span>` : `<span style="font-size: 0.72rem; color: var(--text-muted);">P${idx + 1}</span>`}
+          ${p.isHost ? `<span style="font-size: 0.72rem; background: rgba(255,255,255,0.15); padding: 0.15rem 0.45rem; border-radius: 6px;">👑 ${t("hostBadge")}</span>` : `<span style="font-size: 0.72rem; color: var(--text-muted);">${t("playerPrefix")}${idx + 1}</span>`}
         </div>
       `;
       this.dom.unoWaitingPlayersList.appendChild(row);
@@ -2159,7 +2184,7 @@ class BoardGameApp {
   handleHostStartUnoMatch() {
     const room = this.network.roomsState[this.network.currentRoomId];
     if (!room || !room.players || room.players.length < 2) {
-      alert("ต้องการผู้เล่นอย่างน้อย 2 คน (กด + เพิ่มบอท ได้)");
+      alert(t("unoMinPlayersAlert"));
       return;
     }
 
@@ -2183,7 +2208,8 @@ class BoardGameApp {
     const botNum = room.players.filter(p => p.isBot).length + 1;
     const botObj = {
       id: "bot_" + Math.random().toString(36).substring(2, 7),
-      name: `BOT ${botNum}`,
+      botNum,
+      name: `${t("botName")} ${botNum}`,
       isBot: true,
       isHost: false,
       cardCount: 7
@@ -2299,11 +2325,12 @@ class BoardGameApp {
         seat.className = `uno-seat ${isTurn ? 'active-turn' : ''}`;
         const count = this.unoState.hands[idx] ? this.unoState.hands[idx].length : 0;
         const isUno = count === 1;
+        const pName = player.isBot ? `${t("botName")} ${player.botNum || (idx + 1)}` : player.name;
 
         seat.innerHTML = `
           <span class="seat-avatar">${player.isBot ? '🤖' : '👤'}</span>
           <div class="seat-info">
-            <span class="seat-name">${player.name}</span>
+            <span class="seat-name">${pName}</span>
             <span class="seat-cards-badge">🎴 ${count}</span>
           </div>
           ${isUno ? `<span class="seat-uno-pill">UNO!</span>` : ''}
@@ -2385,10 +2412,12 @@ class BoardGameApp {
     const currentIdx = this.unoState.currentTurn;
     const currentPlayer = this.unoPlayers[currentIdx];
     const isMe = currentIdx === this.myUnoIndex;
-    const name = isMe ? `${t("youLabel")} (You)` : (currentPlayer?.name || `Player ${currentIdx + 1}`);
+    const name = isMe 
+      ? `${this.network.getNickname()} (${t("youLabel")})` 
+      : (currentPlayer ? (currentPlayer.isBot ? `${t("botName")} ${currentPlayer.botNum || (currentIdx + 1)}` : currentPlayer.name) : `${t("defaultPlayerName")} ${currentIdx + 1}`);
 
     if (this.dom.turnBadge) {
-      this.dom.turnBadge.textContent = `${t("turnStatusPrefix") || "ตาเดิน:"} ${name}`;
+      this.dom.turnBadge.textContent = `${t("turnStatusPrefix")} ${name}`;
     }
 
     if (this.dom.whitePlayerBox && this.dom.blackPlayerBox) {
@@ -2652,34 +2681,38 @@ class BoardGameApp {
     this.renderUnoTable();
   }
 
-  endUnoGame(winnerIndex) {
+  endUnoGame(winnerIndex, isLanguageUpdate = false) {
     this.isGameOver = true;
+    this.unoWinnerIndex = winnerIndex;
     this.stopTurnTimer();
     this.clearDisconnectCountdown();
     this.clearPauseSession();
-    this.gameStats.endTime = Date.now();
-
-    playVictory();
+    if (!isLanguageUpdate) {
+      this.gameStats.endTime = Date.now();
+      playVictory();
+    }
 
     const winnerObj = this.unoPlayers[winnerIndex];
     const isMe = winnerIndex === this.myUnoIndex;
-    const winnerName = isMe ? `${this.network.getNickname()} (${t("youLabel")})` : (winnerObj?.name || `Player ${winnerIndex + 1}`);
+    const winnerName = isMe 
+      ? `${this.network.getNickname()} (${t("youLabel")})` 
+      : (winnerObj ? (winnerObj.isBot ? `${t("botName")} ${winnerObj.botNum || (winnerIndex + 1)}` : winnerObj.name) : `${t("defaultPlayerName")} ${winnerIndex + 1}`);
 
     this.dom.modalWinnerTitle.textContent = isMe ? `🎉 ${t("gameOverTitle")}` : t("gameOverTitle");
-    this.dom.modalWinnerReason.textContent = `${winnerName} ${t("statResultDetail")}: ไพ่หมดมือคนแรก (UNO Win!)`;
+    this.dom.modalWinnerReason.textContent = `${winnerName}: ${t("unoWinnerReason")}`;
 
-    this.dom.modalStatMode.textContent = this.activeMode === "uno_stacking" ? t("ruleUnoStacking") : t("ruleUnoStandard");
-    const totalSec = Math.floor((this.gameStats.endTime - this.gameStats.startTime) / 1000);
+    this.dom.modalStatMode.textContent = this.activeMode === "uno_stacking" ? t("ruleUnoStackingBadge") : t("ruleUnoStandardBadge");
+    const totalSec = Math.max(1, Math.floor((this.gameStats.endTime - this.gameStats.startTime) / 1000));
     const m = Math.floor(totalSec / 60);
     const s = totalSec % 60;
-    this.dom.statTotalTime.textContent = `${m}${t("minuteShort")} ${s}${t("secondShort")}`;
+    this.dom.statTotalTime.textContent = m > 0 ? `${m} ${t("minuteShort")} ${s} ${t("secondShort")}` : `${s} ${t("secondShort")}`;
     this.dom.statTotalMoves.textContent = `${this.gameStats.totalMoves} ${t("statMovesUnit")}`;
 
     const avgSec = this.gameStats.totalMoves > 0 ? (totalSec / this.gameStats.totalMoves).toFixed(1) : "0";
     this.dom.statAvgTime.textContent = `${avgSec} ${t("secondShort")}`;
     this.dom.statCaptures.textContent = "—";
     this.dom.statPromotions.textContent = "—";
-    this.dom.statResultDetail.textContent = `ผู้ชนะ: ${winnerName}`;
+    this.dom.statResultDetail.textContent = `${t("winnerPrefix")} ${winnerName}`;
 
     this.dom.gameOverModal.classList.remove("view-hidden");
   }

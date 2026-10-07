@@ -16,8 +16,8 @@
   <!-- App Header -->
   <header>
     <div class="brand">
-      <h1 data-i18n="appTitle">MINIMAL BOARD GAMES</h1>
-      <p data-i18n="appSubtitle">หมากฮอส & หมากรุก มินิมอลขาว-ดำ</p>
+      <h1 data-i18n="appTitle">มินิมอลบอร์ดเกม</h1>
+      <p data-i18n="appSubtitle">หมากฮอส • หมากรุก • โอเทลโล่ • UNO</p>
     </div>
     <div class="header-controls">
       <!-- Language Switcher -->
@@ -85,8 +85,8 @@
               <span class="rule-btn-sub" data-i18n="ruleMakrukDesc4">เบี้ยหงายแถว 6, ขุน, เม็ด, โคน ตามกติกาไทยดั้งเดิม</span>
             </button>
             <button id="rule-western-btn" class="rule-btn" data-mode="chess_western">
-              <span class="rule-btn-title" data-i18n="ruleWesternChess">หมากรุกสากล (King, Queen, Rook, Bishop, Knight, Pawn)</span>
-              <span class="rule-btn-sub" data-i18n="ruleWesternDesc2">Queen 8 ทิศ, เข้าป้อม, เลื่อนขั้นเบี้ยมาตรฐานสากล</span>
+              <span class="rule-btn-title" data-i18n="ruleWesternChess">หมากรุกสากล (คิง, ควีน, เรือ, บิชอป, ม้า, เบี้ย)</span>
+              <span class="rule-btn-sub" data-i18n="ruleWesternDesc2">ควีน 8 ทิศ, เข้าป้อม, เลื่อนขั้นเบี้ยมาตรฐานสากล</span>
             </button>
           </div>
 
@@ -101,11 +101,11 @@
           <!-- UNO Options -->
           <div id="uno-options" class="rule-options-group view-hidden">
             <button id="rule-uno-standard-btn" class="rule-btn" data-mode="uno_standard">
-              <span class="rule-btn-title" data-i18n="ruleUnoStandard">กติกามาตรฐาน (Standard)</span>
-              <span class="rule-btn-sub" data-i18n="ruleUnoStandardDesc">กติกาอูโน่สากล โดน +2 / +4 ต้องจั่วทันที ห้ามลงทบ</span>
+              <span class="rule-btn-title" data-i18n="ruleUnoStandard">กติกามาตรฐาน (โดน +2 / +4 ต้องจั่ว)</span>
+              <span class="rule-btn-sub" data-i18n="ruleUnoStandardDesc">กติกามาตรฐานสากล โดน +2 หรือ +4 ต้องจั่วทันที ห้ามลงทบ</span>
             </button>
             <button id="rule-uno-stacking-btn" class="rule-btn" data-mode="uno_stacking">
-              <span class="rule-btn-title" data-i18n="ruleUnoStacking">กติกาลงทบแต้ม (Stacking +2 / +4)</span>
+              <span class="rule-btn-title" data-i18n="ruleUnoStacking">กติกาลงทบแต้ม (+2 / +4 ซ้อนทบได้)</span>
               <span class="rule-btn-sub" data-i18n="ruleUnoStackingDesc">สามารถลง +2 หรือ +4 ซ้อนทบเพื่อส่งต่อยอดการจั่วให้คนถัดไป</span>
             </button>
           </div>
@@ -115,7 +115,7 @@
       <!-- Singleplayer BOT Section -->
       <div class="bot-card">
         <div class="bot-card-header">
-          <h2 data-i18n="singleplayerSection">เล่นกับบอท (BOT)</h2>
+          <h2 data-i18n="singleplayerSection">เล่นกับบอท</h2>
         </div>
         <!-- UNO Bot Count Stepper (Visible only when UNO is active) -->
         <div id="uno-bot-count-selector" class="bot-count-selector view-hidden">
@@ -178,17 +178,17 @@
               <div class="uno-center-table">
                 <!-- Draw Pile -->
                 <div class="uno-pile-wrapper">
-                  <div id="uno-draw-pile" class="uno-card uno-card-back" title="จั่วไพ่ (Draw Card)" style="cursor: pointer;">
+                  <div id="uno-draw-pile" class="uno-card uno-card-back" data-i18n-title="unoDrawPileTitle" title="จั่วไพ่" style="cursor: pointer;">
                     <div class="card-back-pattern">
                       <span class="card-back-logo">UNO</span>
                     </div>
                   </div>
-                  <span id="uno-draw-count-label" class="pile-label">กองจั่ว: 108</span>
+                  <span id="uno-draw-count-label" class="pile-label" data-i18n="unoDrawPileLabel">กองจั่ว</span>
                 </div>
 
                 <!-- Center Meta: Direction & Active Suit -->
                 <div class="uno-center-meta">
-                  <div id="uno-direction-badge" class="uno-direction-badge" title="ทิศทางการเล่น">
+                  <div id="uno-direction-badge" class="uno-direction-badge" data-i18n-title="unoDirectionTitle" title="ทิศทางการเล่น">
                     ↻
                   </div>
                   <div id="uno-active-suit-pill" class="uno-active-suit-pill">
@@ -205,7 +205,7 @@
                   <div id="uno-discard-pile" class="uno-card">
                     <!-- Top card rendered here -->
                   </div>
-                  <span class="pile-label">กองทิ้ง (Discard)</span>
+                  <span id="uno-discard-label" class="pile-label" data-i18n="unoDiscardPileLabel">กองทิ้ง</span>
                 </div>
               </div>
 
@@ -406,7 +406,7 @@
     <div class="modal-content pause-modal-content">
       <div class="modal-header">
         <h2 data-i18n="pauseRequestTitle">⏸️ คำขอพักเกม</h2>
-        <p id="pause-request-msg">คู่ต่อสู้ขอพักเกม 3 นาที ยินยอมหรือไม่?</p>
+        <p id="pause-request-msg" data-i18n="pauseRequestPrompt">คู่ต่อสู้ขอพักเกม 3 นาที ยินยอมหรือไม่?</p>
       </div>
       <div class="modal-actions">
         <button id="accept-pause-btn" class="primary-btn" data-i18n="acceptBtn">ยินยอม</button>
@@ -481,12 +481,12 @@
       </div>
       <div class="modal-actions" style="flex-direction: column; gap: 0.5rem; width: 100%;">
         <div id="uno-host-controls" style="display: flex; gap: 0.5rem; width: 100%; justify-content: center;">
-          <button id="uno-start-match-btn" class="primary-btn" style="flex: 1;" data-i18n="unoStartBtn">🎮 เริ่มเกม (Start Game)</button>
+          <button id="uno-start-match-btn" class="primary-btn" style="flex: 1;" data-i18n="unoStartBtn">🎮 เริ่มเกม</button>
           <button id="uno-add-bot-room-btn" class="btn-secondary" data-i18n="unoAddBotBtn">+ เพิ่มบอท</button>
           <button id="uno-remove-bot-room-btn" class="btn-secondary" data-i18n="unoRemoveBotBtn">- ลดบอท</button>
         </div>
-        <p id="uno-waiting-notice" style="font-size: 0.8rem; color: var(--text-muted); text-align: center;" data-i18n="unoWaitingHostMsg">กำลังรอ Host กดเริ่มเกม...</p>
-        <button id="uno-leave-waiting-btn" class="btn-secondary" style="width: 100%;" data-i18n="backToLobby">← กลับหน้าล็อบบี้</button>
+        <p id="uno-waiting-notice" style="font-size: 0.8rem; color: var(--text-muted); text-align: center;" data-i18n="unoWaitingHostMsg">กำลังรอหัวหน้าห้องกดเริ่มเกม...</p>
+        <button id="uno-leave-waiting-btn" class="btn-secondary" style="width: 100%;" data-i18n="backToLobby">← กลับสู่ล็อบบี้</button>
       </div>
     </div>
   </div>
