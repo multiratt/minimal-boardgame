@@ -59,9 +59,9 @@ import {
   challengeUno,
   shoutUno,
   getAIUnoAction
-} from "./rules-uno.js?v=2.5";
+} from "./rules-uno.js?v=2.6";
 
-import { NetworkManager, MAX_ROOMS } from "./network.js?v=2.5";
+import { NetworkManager, MAX_ROOMS } from "./network.js?v=2.6";
 import {
   t,
   getLang,
@@ -256,6 +256,13 @@ class BoardGameApp {
 
       roomsGrid: document.getElementById("rooms-grid"),
       refreshRoomsBtn: document.getElementById("refresh-rooms-btn"),
+      networkStatusBadge: document.getElementById("network-status-badge"),
+      networkStatusText: document.getElementById("network-status-text"),
+      networkWarningBanner: document.getElementById("network-warning-banner"),
+      netWarningTitle: document.getElementById("net-warning-title"),
+      netWarningDesc: document.getElementById("net-warning-desc"),
+      netWarningHint: document.getElementById("net-warning-hint"),
+      netRetryBtn: document.getElementById("net-retry-btn"),
 
       exitLobbyBtn: document.getElementById("exit-lobby-btn"),
       resignGameBtn: document.getElementById("resign-game-btn"),
@@ -555,6 +562,50 @@ class BoardGameApp {
         this.handleOpponentReconnected();
       }
     };
+
+    // Network Diagnostics & Status Callbacks
+    this.network.onConnectionStatusChanged = (status) => this.handleConnectionStatusChanged(status);
+    if (this.dom.netRetryBtn) {
+      this.dom.netRetryBtn.addEventListener("click", () => {
+        this.network.retryConnection();
+      });
+    }
+    this.handleConnectionStatusChanged(this.network.connectionStatus);
+  }
+
+  handleConnectionStatusChanged(status) {
+    if (!this.dom.networkStatusBadge) return;
+
+    this.dom.networkStatusBadge.classList.remove("status-connecting", "status-connected", "status-restricted", "status-offline");
+    this.dom.networkStatusBadge.classList.add(`status-${status}`);
+
+    if (this.dom.networkStatusText) {
+      if (status === "connecting") {
+        this.dom.networkStatusText.textContent = t("netStatusConnecting");
+      } else if (status === "connected") {
+        this.dom.networkStatusText.textContent = t("netStatusConnected");
+      } else if (status === "restricted") {
+        this.dom.networkStatusText.textContent = t("netStatusRestricted");
+      } else if (status === "offline") {
+        this.dom.networkStatusText.textContent = t("netStatusOffline");
+      }
+    }
+
+    if (this.dom.networkWarningBanner) {
+      if (status === "restricted") {
+        this.dom.networkWarningBanner.classList.remove("view-hidden");
+        if (this.dom.netWarningTitle) this.dom.netWarningTitle.textContent = t("netWarningTitle");
+        if (this.dom.netWarningDesc) this.dom.netWarningDesc.textContent = t("netWarningDesc");
+        if (this.dom.netWarningHint) this.dom.netWarningHint.textContent = t("netWarningHint");
+      } else if (status === "offline") {
+        this.dom.networkWarningBanner.classList.remove("view-hidden");
+        if (this.dom.netWarningTitle) this.dom.netWarningTitle.textContent = t("netWarningOfflineTitle");
+        if (this.dom.netWarningDesc) this.dom.netWarningDesc.textContent = t("netWarningOfflineDesc");
+        if (this.dom.netWarningHint) this.dom.netWarningHint.textContent = t("netWarningHint");
+      } else {
+        this.dom.networkWarningBanner.classList.add("view-hidden");
+      }
+    }
   }
 
   setCategory(category) {
@@ -677,6 +728,7 @@ class BoardGameApp {
     this.renderSidebarRules();
     this.renderLobbyRooms(this.network.roomsState);
     this.updateUnoBotCountDisplay();
+    this.handleConnectionStatusChanged(this.network.connectionStatus);
     if (this.modeIsUno()) {
       this.renderUnoTable();
     }
@@ -925,6 +977,11 @@ class BoardGameApp {
   }
 
   joinOnlineRoom(roomId, asSpectator = false) {
+    if (this.network.connectionStatus === "restricted" || this.network.connectionStatus === "offline") {
+      alert(t("netBlockedAlert"));
+      return;
+    }
+
     this.turnTimeLimit = 60;
     this.timeRemaining = 60;
     this.mode = "online";

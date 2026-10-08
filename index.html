@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Minimal Board Games - หมากฮอส & หมากรุกขาวดำ</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
-  <link rel="stylesheet" href="css/style.css?v=2.5">
-  <link rel="stylesheet" href="css/animations.css?v=2.5">
+  <link rel="stylesheet" href="css/style.css?v=2.6">
+  <link rel="stylesheet" href="css/animations.css?v=2.6">
   <!-- Bundled local libraries for 100% offline & GitHub Pages support -->
   <script src="mqtt.min.js"></script>
   <script src="chess.min.js"></script>
@@ -139,8 +139,25 @@
       <!-- Multiplayer 4 Rooms Section -->
       <div class="multiplayer-section">
         <div class="section-header">
-          <h2 data-i18n="multiplayerSection">ห้องเล่นออนไลน์สด (4 ห้อง)</h2>
+          <div class="section-header-title-wrap">
+            <h2 data-i18n="multiplayerSection">ห้องเล่นออนไลน์สด (4 ห้อง)</h2>
+            <div id="network-status-badge" class="net-status-badge status-connecting">
+              <span class="net-status-dot"></span>
+              <span id="network-status-text" data-i18n="netStatusConnecting">กำลังตรวจสอบเครือข่าย...</span>
+            </div>
+          </div>
           <button id="refresh-rooms-btn" class="btn-secondary" data-i18n="refreshRooms">รีเฟรชสถานะ</button>
+        </div>
+
+        <!-- Network Warning Banner (Shown if restricted or offline) -->
+        <div id="network-warning-banner" class="network-warning-card view-hidden">
+          <div class="network-warning-icon">⚠️</div>
+          <div class="network-warning-body">
+            <h4 id="net-warning-title" data-i18n="netWarningTitle">เครือข่ายนี้ไม่รองรับระบบห้องออนไลน์</h4>
+            <p id="net-warning-desc" data-i18n="netWarningDesc">Wi-Fi หรือเครือข่ายที่คุณใช้งานอยู่ (เช่น เครือข่ายองค์กรหรือสถานศึกษา) มีการบล็อกพอร์ต WebSockets ภายนอก ทำให้ไม่สามารถเชื่อมต่อห้องออนไลน์ได้</p>
+            <p id="net-warning-hint" class="net-warning-hint" data-i18n="netWarningHint">💡 คำแนะนำ: ลองเปลี่ยนไปใช้เน็ตมือถือ (4G/5G Hotspot) หรือเล่นโหมดกับบอทแทนในระหว่างนี้</p>
+          </div>
+          <button id="net-retry-btn" class="btn-secondary net-retry-btn" data-i18n="netRetryBtn">🔄 ทดสอบใหม่</button>
         </div>
 
         <div id="rooms-grid" class="rooms-grid">
@@ -495,6 +512,6 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=2.5"></script>
+  <script type="module" src="js/app.js?v=2.6"></script>
 </body>
 </html>

@@ -75,6 +75,19 @@ export const translations = {
     spectateBtn: "เข้าชมสด",
     noSlots: "ห้องเต็มแล้ว",
 
+    // Network Diagnostic Status & Warnings
+    netStatusConnecting: "กำลังตรวจสอบเครือข่าย...",
+    netStatusConnected: "เชื่อมต่อแล้ว",
+    netStatusRestricted: "เครือข่ายไม่รองรับ",
+    netStatusOffline: "ออฟไลน์",
+    netWarningTitle: "⚠️ เครือข่ายนี้ไม่รองรับระบบห้องออนไลน์",
+    netWarningDesc: "Wi-Fi หรือเครือข่ายที่คุณใช้งานอยู่ (เช่น เครือข่ายองค์กรหรือสถานศึกษา) มีการบล็อกพอร์ต WebSockets ภายนอก ทำให้ไม่สามารถเชื่อมต่อห้องออนไลน์ได้",
+    netWarningHint: "💡 คำแนะนำ: ลองเปลี่ยนไปใช้เน็ตมือถือ (4G/5G Hotspot) หรือเล่นโหมดกับบอทแทนในระหว่างนี้",
+    netWarningOfflineTitle: "⚠️ ไม่มีการเชื่อมต่ออินเทอร์เน็ต",
+    netWarningOfflineDesc: "อุปกรณ์ของคุณไม่ได้เชื่อมต่ออินเทอร์เน็ต กรุณาตรวจสอบสัญญาณเน็ต",
+    netRetryBtn: "🔄 ทดสอบใหม่",
+    netBlockedAlert: "เครือข่ายของคุณบล็อกพอร์ต WebSockets ไม่สามารถเข้าห้องออนไลน์ได้ กรุณาลองใช้เน็ตมือถือ",
+
     // Game Arena Sidebar
     matchVsBot: "แข่งกับบอท",
     spectatingBadge: "โหมดผู้ชมสด",
@@ -317,6 +330,19 @@ export const translations = {
     joinPlayBtn: "Join Match",
     spectateBtn: "Spectate",
     noSlots: "Room Full",
+
+    // Network Diagnostic Status & Warnings
+    netStatusConnecting: "Checking network...",
+    netStatusConnected: "Connected",
+    netStatusRestricted: "Network Restricted",
+    netStatusOffline: "Offline",
+    netWarningTitle: "⚠️ Network Does Not Support Online Rooms",
+    netWarningDesc: "Your current Wi-Fi or cellular network (such as corporate or school firewalls) is blocking outbound WebSockets, preventing connection to online rooms.",
+    netWarningHint: "💡 Tip: Try switching to mobile data (Hotspot) or play against the Bot in the meantime.",
+    netWarningOfflineTitle: "⚠️ No Internet Connection",
+    netWarningOfflineDesc: "Your device is currently offline. Please check your internet connection.",
+    netRetryBtn: "🔄 Retry",
+    netBlockedAlert: "Your network is blocking WebSockets. Online multiplayer is unavailable. Please try mobile data.",
 
     // Game Arena Sidebar
     matchVsBot: "Match vs BOT",

@@ -67,10 +67,40 @@ export class NetworkManager {
     this.lastOpponentPing = 0;
     this.isOpponentConnected = true;
 
+    // Network Connectivity Diagnostics
+    this.connectionStatus = "connecting"; // "connecting" | "connected" | "restricted" | "offline"
+    this.onConnectionStatusChanged = null; // (status: string) => void
+    this.connectionCheckTimer = null;
+
     this.heartbeatInterval = null;
     this.initBroadcastChannel();
+    this.initNetworkListeners();
     this.connectMQTT();
     this.startHeartbeatTimer();
+  }
+
+  initNetworkListeners() {
+    if (typeof window !== "undefined") {
+      window.addEventListener("online", () => {
+        this.retryConnection();
+      });
+      window.addEventListener("offline", () => {
+        this.setConnectionStatus("offline");
+      });
+    }
+  }
+
+  setConnectionStatus(status) {
+    if (this.connectionStatus === status) return;
+    this.connectionStatus = status;
+    if (this.onConnectionStatusChanged) {
+      this.onConnectionStatusChanged(status);
+    }
+  }
+
+  retryConnection() {
+    this.setConnectionStatus("connecting");
+    this.connectMQTT();
   }
 
   setNickname(name) {
@@ -131,6 +161,26 @@ export class NetworkManager {
       this.mqttClient = null;
     }
 
+    if (this.connectionCheckTimer) {
+      clearTimeout(this.connectionCheckTimer);
+      this.connectionCheckTimer = null;
+    }
+
+    // Check browser offline status
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      this.setConnectionStatus("offline");
+    } else {
+      this.setConnectionStatus("connecting");
+    }
+
+    // Set 6-second diagnostic timeout: If still not connected, network has restrictions
+    this.connectionCheckTimer = setTimeout(() => {
+      if (!this.isConnected) {
+        const isOffline = typeof navigator !== "undefined" && navigator.onLine === false;
+        this.setConnectionStatus(isOffline ? "offline" : "restricted");
+      }
+    }, 6000);
+
     const brokerUrl = BROKERS[0];
     try {
       this.mqttClient = mqttObj.connect(brokerUrl, {
@@ -142,6 +192,12 @@ export class NetworkManager {
 
       this.mqttClient.on("connect", () => {
         this.isConnected = true;
+        if (this.connectionCheckTimer) {
+          clearTimeout(this.connectionCheckTimer);
+          this.connectionCheckTimer = null;
+        }
+        this.setConnectionStatus("connected");
+
         // Subscribe to lobby topic
         this.mqttClient.subscribe(LOBBY_TOPIC);
         if (this.currentRoomId) {
@@ -166,21 +222,35 @@ export class NetworkManager {
 
       this.mqttClient.on("error", (err) => {
         console.warn("MQTT connection error on", brokerUrl, err.message);
+        if (!this.isConnected) {
+          const isOffline = typeof navigator !== "undefined" && navigator.onLine === false;
+          this.setConnectionStatus(isOffline ? "offline" : "restricted");
+        }
       });
 
       this.mqttClient.on("close", () => {
         this.isConnected = false;
+        if (typeof navigator !== "undefined" && navigator.onLine === false) {
+          this.setConnectionStatus("offline");
+        }
       });
 
       this.mqttClient.on("offline", () => {
         this.isConnected = false;
+        if (typeof navigator !== "undefined" && navigator.onLine === false) {
+          this.setConnectionStatus("offline");
+        }
       });
 
       this.mqttClient.on("reconnect", () => {
         console.log("MQTT reconnecting to", brokerUrl);
+        if (!this.isConnected && this.connectionStatus !== "restricted") {
+          this.setConnectionStatus("connecting");
+        }
       });
     } catch (e) {
       console.warn("MQTT init error:", e);
+      this.setConnectionStatus("restricted");
     }
   }
 
