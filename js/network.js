@@ -83,6 +83,26 @@ export class NetworkManager {
     return this.nickname || "Player_" + this.clientId.substring(5, 8);
   }
 
+  addSpectator(room, id, name) {
+    if (!room) return;
+    if (!room.spectatorList) room.spectatorList = [];
+    room.spectatorList = room.spectatorList.filter(s => (typeof s === "string" ? s !== id : s.id !== id));
+    room.spectatorList.push({ id, name: name || "Guest" });
+    room.spectators = room.spectatorList.length;
+  }
+
+  removeSpectator(room, id) {
+    if (!room) return;
+    if (!room.spectatorList) room.spectatorList = [];
+    room.spectatorList = room.spectatorList.filter(s => (typeof s === "string" ? s !== id : s.id !== id));
+    room.spectators = room.spectatorList.length;
+  }
+
+  getSpectatorNames(room) {
+    if (!room || !room.spectatorList) return [];
+    return room.spectatorList.map(s => (typeof s === "string" ? s : (s.name || s.id))).filter(Boolean);
+  }
+
   initBroadcastChannel() {
     if (typeof BroadcastChannel !== "undefined") {
       try {
@@ -308,10 +328,7 @@ export class NetworkManager {
       if (!room.players) room.players = [];
       if (asSpectator) {
         this.role = "spectator";
-        if (!room.spectatorList.includes(this.clientId)) {
-          room.spectatorList.push(this.clientId);
-          room.spectators = room.spectatorList.length;
-        }
+        this.addSpectator(room, this.clientId, this.getNickname());
       } else {
         const existingIdx = room.players.findIndex(p => p.id === this.clientId);
         if (existingIdx !== -1) {
@@ -327,19 +344,13 @@ export class NetworkManager {
           room.status = "waiting";
         } else {
           this.role = "spectator";
-          if (!room.spectatorList.includes(this.clientId)) {
-            room.spectatorList.push(this.clientId);
-            room.spectators = room.spectatorList.length;
-          }
+          this.addSpectator(room, this.clientId, this.getNickname());
         }
       }
     } else {
       if (asSpectator) {
         this.role = "spectator";
-        if (!room.spectatorList.includes(this.clientId)) {
-          room.spectatorList.push(this.clientId);
-          room.spectators = room.spectatorList.length;
-        }
+        this.addSpectator(room, this.clientId, this.getNickname());
       } else {
         if (room.p1 && room.p1.id === this.clientId) {
           this.role = "player1";
@@ -359,10 +370,7 @@ export class NetworkManager {
           room.status = "playing";
         } else {
           this.role = "spectator";
-          if (!room.spectatorList.includes(this.clientId)) {
-            room.spectatorList.push(this.clientId);
-            room.spectators = room.spectatorList.length;
-          }
+          this.addSpectator(room, this.clientId, this.getNickname());
         }
       }
     }
@@ -451,8 +459,7 @@ export class NetworkManager {
     }
 
     if (this.role === "spectator") {
-      room.spectatorList = room.spectatorList.filter(id => id !== this.clientId);
-      room.spectators = room.spectatorList.length;
+      this.removeSpectator(room, this.clientId);
     }
 
     // Broadcast updated state to lobby immediately!
@@ -693,10 +700,7 @@ export class NetworkManager {
           }
         }
         if (msg.role === "spectator") {
-          if (!room.spectatorList.includes(senderId)) {
-            room.spectatorList.push(senderId);
-            room.spectators = room.spectatorList.length;
-          }
+          this.addSpectator(room, senderId, senderName);
         }
         this.sendRoomHeartbeat();
         if (this.onRoomStateChanged) {
@@ -819,10 +823,7 @@ export class NetworkManager {
           }
         }
 
-        if (room.spectatorList) {
-          room.spectatorList = room.spectatorList.filter(id => id !== senderId);
-          room.spectators = room.spectatorList.length;
-        }
+        this.removeSpectator(room, senderId);
 
         this.sendRoomHeartbeat();
 

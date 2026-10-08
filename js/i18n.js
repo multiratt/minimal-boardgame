@@ -240,7 +240,10 @@ export const translations = {
     // Miscellaneous UI & Document
     docTitle: "มินิมอลบอร์ดเกม - หมากฮอส หมากรุก โอเทลโล่ และ UNO",
     hostBadge: "หัวหน้าห้อง",
-    playerPrefix: "ผู้เล่น "
+    playerPrefix: "ผู้เล่น ",
+    playBotVsBotBtn: "🤖 vs 🤖 ดูบอทแข่งกัน",
+    matchBotVsBot: "บอทแข่งกันเอง (โหมดดูการเล่น)",
+    spectatorsHeader: "ผู้ชม"
   },
   en: {
     // Header
@@ -480,7 +483,10 @@ export const translations = {
     // Miscellaneous UI & Document
     docTitle: "Minimal Board Games - Checkers, Chess, Othello & UNO",
     hostBadge: "Host",
-    playerPrefix: "P"
+    playerPrefix: "P",
+    playBotVsBotBtn: "🤖 vs 🤖 Watch Bot vs Bot",
+    matchBotVsBot: "Bot vs Bot (Spectator Mode)",
+    spectatorsHeader: "Spectators"
   }
 };
 

@@ -132,7 +132,10 @@
           <button class="diff-btn active" data-diff="medium" data-i18n="diffMedium">ปานกลาง</button>
           <button class="diff-btn" data-diff="hard" data-i18n="diffHard">ยาก</button>
         </div>
-        <button id="start-bot-btn" class="primary-btn" data-i18n="playBotBtn">เริ่มเล่นกับบอท</button>
+        <div class="bot-start-buttons-group">
+          <button id="start-bot-btn" class="primary-btn" data-i18n="playBotBtn">เริ่มเล่นกับบอท</button>
+          <button id="start-bot-vs-bot-btn" class="btn-secondary" data-i18n="playBotVsBotBtn">🤖 vs 🤖 ดูบอทแข่งกัน</button>
+        </div>
       </div>
 
       <!-- Multiplayer 4 Rooms Section -->
@@ -156,6 +159,7 @@
         <div class="board-column-fit">
           <div class="board-header-bar">
             <span id="match-info-title" class="match-info-badge"></span>
+            <span id="spectators-banner" class="spectators-pill view-hidden"></span>
             <div id="endgame-turn-badge" class="endgame-turn-pill view-hidden"></div>
             <div id="mandatory-notice" class="notice-pill view-hidden" data-i18n="mandatoryJumpNotice">
               มีจังหวะกิน! ต้องกินตามกติกา
@@ -232,7 +236,7 @@
             <div class="card-header">
               <span data-i18n="playersHeader">ผู้เล่น & ตาเดิน</span>
             </div>
-            <div class="players-list">
+            <div id="players-list" class="players-list">
               <div id="white-player-box" class="player-box active-turn-ring">
                 <div class="player-tag">
                   <span class="player-dot dot-white"></span>
