@@ -84,8 +84,8 @@ export const translations = {
     botName: "บอท",
     turnWhite: "ตาเดิน: สีขาว",
     turnBlack: "ตาเดิน: สีดำ",
-    turnYour: "ตาของคุณ!",
-    turnOpponent: "ตาของคู่ต่อสู้...",
+    turnYour: "ตาของคุณ",
+    turnOpponent: "ตาของคู่ต่อสู้",
     turnStatusPrefix: "ตาเดิน:",
     
     timerCardTitle: "เวลานับถอยหลังต่อตา",
@@ -327,8 +327,8 @@ export const translations = {
     botName: "BOT",
     turnWhite: "Turn: White",
     turnBlack: "Turn: Black",
-    turnYour: "Your turn!",
-    turnOpponent: "Opponent's turn...",
+    turnYour: "Your turn",
+    turnOpponent: "Opponent's turn",
     turnStatusPrefix: "Turn:",
 
     timerCardTitle: "Turn Countdown",

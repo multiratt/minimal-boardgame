@@ -7,8 +7,8 @@ const ROOM_TOPIC_PREFIX = "minimal_board_games_v4/room/";
 const BROADCAST_CHANNEL_NAME = "minimal_board_games_v4_bc";
 
 const BROKERS = [
-  "wss://broker.emqx.io:8084/mqtt",
-  "wss://broker.hivemq.com:8884/mqtt"
+  "wss://broker.hivemq.com:8884/mqtt",
+  "wss://broker.emqx.io:8084/mqtt"
 ];
 
 export class NetworkManager {
@@ -124,12 +124,22 @@ export class NetworkManager {
       return;
     }
 
+    if (this.mqttClient) {
+      try {
+        this.mqttClient.removeAllListeners();
+        this.mqttClient.end(true);
+      } catch (e) {}
+      this.mqttClient = null;
+    }
+
     const brokerUrl = BROKERS[this.currentBrokerIndex];
+    const mqttClientId = (this.clientId || "user") + "_" + Math.random().toString(36).substring(2, 7);
+
     try {
       this.mqttClient = mqttObj.connect(brokerUrl, {
-        clientId: this.clientId,
+        clientId: mqttClientId,
         clean: true,
-        connectTimeout: 5000,
+        connectTimeout: 7000,
         reconnectPeriod: 4000
       });
 
@@ -143,6 +153,9 @@ export class NetworkManager {
 
         // Immediately request active room states from other clients
         this.queryLobby();
+        if (this.currentRoomId) {
+          this.sendRoomHeartbeat();
+        }
       });
 
       this.mqttClient.on("message", (topic, payload) => {
@@ -156,8 +169,12 @@ export class NetworkManager {
 
       this.mqttClient.on("error", (err) => {
         console.warn("MQTT connection error on", brokerUrl, err.message);
-        // Switch broker on error
-        this.currentBrokerIndex = (this.currentBrokerIndex + 1) % BROKERS.length;
+        if (!this.isConnected) {
+          this.currentBrokerIndex = (this.currentBrokerIndex + 1) % BROKERS.length;
+          setTimeout(() => {
+            if (!this.isConnected) this.connectMQTT();
+          }, 1500);
+        }
       });
 
       this.mqttClient.on("close", () => {
@@ -210,7 +227,7 @@ export class NetworkManager {
       }
       if (payload.type === "LOBBY_QUERY") {
         // Someone entered the lobby: if we are occupying a room, reply immediately!
-        if (this.currentRoomId && (this.role === "player1" || this.role === "player2")) {
+        if (this.currentRoomId && (this.role === "player1" || this.role === "player2" || (this.roomsState[this.currentRoomId] && this.roomsState[this.currentRoomId].status !== "empty"))) {
           this.sendRoomHeartbeat();
         }
         return;
@@ -255,10 +272,10 @@ export class NetworkManager {
       const now = Date.now();
       let changed = false;
 
-      // 1. Clean stale rooms that haven't sent a heartbeat for 7 seconds
+      // 1. Clean stale rooms that haven't sent a heartbeat for 15 seconds
       for (let r = 1; r <= MAX_ROOMS; r++) {
         if (r !== this.currentRoomId && this.roomsState[r].status !== "empty") {
-          if (now - this.roomsState[r].lastHeartbeat > 7000) {
+          if (now - this.roomsState[r].lastHeartbeat > 15000) {
             this.roomsState[r] = {
               roomId: r,
               status: "empty",
@@ -426,12 +443,22 @@ export class NetworkManager {
         const wasHost = room.players[pIdx].isHost;
         room.players.splice(pIdx, 1);
         if (room.players.length > 0) {
-          if (wasHost) {
-            const nextHost = room.players.find(p => !p.isBot) || room.players[0];
-            nextHost.isHost = true;
+          const remainingHumans = room.players.filter(p => !p.isBot);
+          if (remainingHumans.length > 0) {
+            if (wasHost) {
+              const nextHost = remainingHumans[0];
+              if (nextHost) nextHost.isHost = true;
+            }
+            room.p1 = room.players[0];
+            room.p2 = room.players[1] || null;
+          } else {
+            // Only bots were left; clear room completely
+            room.status = "empty";
+            room.mode = null;
+            room.p1 = null;
+            room.p2 = null;
+            room.players = [];
           }
-          room.p1 = room.players[0];
-          room.p2 = room.players[1] || null;
         } else {
           room.status = "empty";
           room.mode = null;

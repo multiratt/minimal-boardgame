@@ -594,6 +594,8 @@ class BoardGameApp {
         this.setMode("uno_standard");
       }
     }
+    this.network.queryLobby();
+    this.renderLobbyRooms(this.network.roomsState);
   }
 
   updateCategoryTabsUI() {
@@ -682,8 +684,8 @@ class BoardGameApp {
       this.updateBotPlayerNames();
     } else if (this.mode === "bot_vs_bot") {
       const diffTitle = t(`diff${this.botDifficulty.charAt(0).toUpperCase() + this.botDifficulty.slice(1)}`);
-      if (this.dom.whitePlayerName) this.dom.whitePlayerName.textContent = `🤖 ${t("botName")} 1 (${diffTitle})`;
-      if (this.dom.blackPlayerName) this.dom.blackPlayerName.textContent = `🤖 ${t("botName")} 2 (${diffTitle})`;
+      if (this.dom.whitePlayerName) this.dom.whitePlayerName.textContent = `⚪ ${t("playerWhite")}: 🤖 ${t("botName")} 1 (${diffTitle})`;
+      if (this.dom.blackPlayerName) this.dom.blackPlayerName.textContent = `⚫ ${t("playerBlack")}: 🤖 ${t("botName")} 2 (${diffTitle})`;
     } else if (this.mode === "online") {
       this.updateOnlinePlayerNames(this.network.roomsState[this.network.currentRoomId]);
     }
@@ -697,7 +699,7 @@ class BoardGameApp {
     if (this.dom.unoWaitingModal && !this.dom.unoWaitingModal.classList.contains("view-hidden")) {
       const room = this.network.roomsState[this.network.currentRoomId];
       if (room && room.players) {
-        this.renderUnoWaitingModal(room.players);
+        this.renderUnoWaitingRoom(room);
       }
     }
     if (this.isGameOver && this.dom.gameOverModal && !this.dom.gameOverModal.classList.contains("view-hidden")) {
@@ -903,8 +905,8 @@ class BoardGameApp {
     this.updateMatchTitle();
 
     const diffTitle = t(`diff${this.botDifficulty.charAt(0).toUpperCase() + this.botDifficulty.slice(1)}`);
-    if (this.dom.whitePlayerName) this.dom.whitePlayerName.textContent = `🤖 ${t("botName")} 1 (${diffTitle})`;
-    if (this.dom.blackPlayerName) this.dom.blackPlayerName.textContent = `🤖 ${t("botName")} 2 (${diffTitle})`;
+    if (this.dom.whitePlayerName) this.dom.whitePlayerName.textContent = `⚪ ${t("playerWhite")}: 🤖 ${t("botName")} 1 (${diffTitle})`;
+    if (this.dom.blackPlayerName) this.dom.blackPlayerName.textContent = `⚫ ${t("playerBlack")}: 🤖 ${t("botName")} 2 (${diffTitle})`;
 
     this.showGameView();
     this.resetGameRound();
@@ -912,13 +914,13 @@ class BoardGameApp {
 
   updateBotPlayerNames() {
     const playerName = this.network.getNickname() || t("defaultPlayerName");
-    const botTitle = `${t("botName")} (${t(`diff${this.botDifficulty.charAt(0).toUpperCase() + this.botDifficulty.slice(1)}`)})`;
+    const botTitle = `🤖 ${t("botName")} (${t(`diff${this.botDifficulty.charAt(0).toUpperCase() + this.botDifficulty.slice(1)}`)})`;
     if (this.myColor === BLACK) {
-      this.dom.blackPlayerName.textContent = `${playerName} (${t("youLabel")})`;
-      this.dom.whitePlayerName.textContent = botTitle;
+      if (this.dom.blackPlayerName) this.dom.blackPlayerName.textContent = `⚫ ${t("playerBlack")}: ${playerName} (${t("youLabel")})`;
+      if (this.dom.whitePlayerName) this.dom.whitePlayerName.textContent = `⚪ ${t("playerWhite")}: ${botTitle}`;
     } else {
-      this.dom.whitePlayerName.textContent = `${playerName} (${t("youLabel")})`;
-      this.dom.blackPlayerName.textContent = botTitle;
+      if (this.dom.whitePlayerName) this.dom.whitePlayerName.textContent = `⚪ ${t("playerWhite")}: ${playerName} (${t("youLabel")})`;
+      if (this.dom.blackPlayerName) this.dom.blackPlayerName.textContent = `⚫ ${t("playerBlack")}: ${botTitle}`;
     }
   }
 
@@ -1052,8 +1054,8 @@ class BoardGameApp {
           pWhite = `${pWhite} (${t("youLabel")})`;
         }
       }
-      this.dom.blackPlayerName.textContent = pBlack;
-      this.dom.whitePlayerName.textContent = pWhite;
+      if (this.dom.blackPlayerName) this.dom.blackPlayerName.textContent = `⚫ ${t("playerBlack")}: ${pBlack}`;
+      if (this.dom.whitePlayerName) this.dom.whitePlayerName.textContent = `⚪ ${t("playerWhite")}: ${pWhite}`;
     } else {
       let p1 = room && room.p1 ? room.p1.name : t("playerWhite");
       let p2 = room && room.p2 ? room.p2.name : (this.role === "spectator" ? t("playerBlack") : t("waitingOpponentJoin"));
@@ -1065,8 +1067,8 @@ class BoardGameApp {
           p2 = `${p2} (${t("youLabel")})`;
         }
       }
-      this.dom.whitePlayerName.textContent = p1;
-      this.dom.blackPlayerName.textContent = p2;
+      if (this.dom.whitePlayerName) this.dom.whitePlayerName.textContent = `⚪ ${t("playerWhite")}: ${p1}`;
+      if (this.dom.blackPlayerName) this.dom.blackPlayerName.textContent = `⚫ ${t("playerBlack")}: ${p2}`;
     }
     this.updateSpectatorsUI(room);
   }
@@ -1193,6 +1195,7 @@ class BoardGameApp {
     }
     this.dom.gameView.classList.add("view-hidden");
     this.dom.lobbyView.classList.remove("view-hidden");
+    this.network.queryLobby();
     this.renderLobbyRooms(this.network.roomsState);
   }
 
@@ -1793,11 +1796,29 @@ class BoardGameApp {
   // --- TURN, PIECES & TIMER ---
   updateTurnUI() {
     const isWhite = this.turn === WHITE;
-    if (this.role === "spectator") {
-      this.dom.turnBadge.textContent = isWhite ? t("turnWhite") : t("turnBlack");
+    const colorLabel = isWhite ? t("playerWhite") : t("playerBlack");
+    const colorIcon = isWhite ? "⚪" : "⚫";
+
+    if (this.role === "spectator" || this.mode === "bot_vs_bot") {
+      let currentName = "";
+      if (this.mode === "bot_vs_bot") {
+        currentName = isWhite ? `🤖 ${t("botName")} 1` : `🤖 ${t("botName")} 2`;
+      } else if (this.mode === "online") {
+        const room = this.network.roomsState[this.network.currentRoomId];
+        if (this.activeMode === "othello") {
+          currentName = isWhite ? (room?.p2?.name || t("playerWhite")) : (room?.p1?.name || t("playerBlack"));
+        } else {
+          currentName = isWhite ? (room?.p1?.name || t("playerWhite")) : (room?.p2?.name || t("playerBlack"));
+        }
+      } else {
+        currentName = colorLabel;
+      }
+      this.dom.turnBadge.textContent = `${t("turnStatusPrefix")} ${colorIcon} ${colorLabel} (${currentName})`;
     } else {
       const isMyTurn = this.turn === this.myColor;
-      this.dom.turnBadge.textContent = isMyTurn ? t("turnYour") : t("turnOpponent");
+      this.dom.turnBadge.textContent = isMyTurn 
+        ? `${t("turnYour")} (${colorIcon} ${colorLabel})` 
+        : `${t("turnOpponent")} (${colorIcon} ${colorLabel})`;
     }
 
     if (isWhite) {
@@ -2563,14 +2584,14 @@ class BoardGameApp {
         <div id="white-player-box" class="player-box active-turn-ring">
           <div class="player-tag">
             <span class="player-dot dot-white"></span>
-            <span id="white-player-name" class="player-name-text">${t("playerWhite")}</span>
+            <span id="white-player-name" class="player-name-text">⚪ ${t("playerWhite")}</span>
           </div>
           <span id="white-pieces-count" class="piece-count-badge">0</span>
         </div>
         <div id="black-player-box" class="player-box">
           <div class="player-tag">
             <span class="player-dot dot-black"></span>
-            <span id="black-player-name" class="player-name-text">${t("playerBlack")}</span>
+            <span id="black-player-name" class="player-name-text">⚫ ${t("playerBlack")}</span>
           </div>
           <span id="black-pieces-count" class="piece-count-badge">0</span>
         </div>
@@ -2585,8 +2606,8 @@ class BoardGameApp {
 
     if (this.mode === "bot_vs_bot") {
       const diffTitle = t(`diff${this.botDifficulty.charAt(0).toUpperCase() + this.botDifficulty.slice(1)}`);
-      if (this.dom.whitePlayerName) this.dom.whitePlayerName.textContent = `🤖 ${t("botName")} 1 (${diffTitle})`;
-      if (this.dom.blackPlayerName) this.dom.blackPlayerName.textContent = `🤖 ${t("botName")} 2 (${diffTitle})`;
+      if (this.dom.whitePlayerName) this.dom.whitePlayerName.textContent = `⚪ ${t("playerWhite")}: 🤖 ${t("botName")} 1 (${diffTitle})`;
+      if (this.dom.blackPlayerName) this.dom.blackPlayerName.textContent = `⚫ ${t("playerBlack")}: 🤖 ${t("botName")} 2 (${diffTitle})`;
     } else if (this.mode === "bot") {
       this.updateBotPlayerNames();
     } else if (this.mode === "online") {
