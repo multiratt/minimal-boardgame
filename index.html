@@ -496,6 +496,58 @@
     </div>
   </div>
 
+  <!-- UNO Room Setup Modal (When creating/opening an UNO online room) -->
+  <div id="uno-room-setup-modal" class="modal-overlay view-hidden">
+    <div class="modal-content pause-modal-content uno-setup-modal-content">
+      <div class="modal-header">
+        <h2 data-i18n="unoRoomSetupTitle">ตั้งค่าห้อง UNO</h2>
+        <p data-i18n="unoSetupSub">กำหนดจำนวนผู้เล่นและบอทสำหรับห้องนี้</p>
+      </div>
+
+      <div class="uno-setup-controls">
+        <!-- Humans row -->
+        <div class="uno-setup-row">
+          <div class="uno-setup-row-info">
+            <span class="uno-setup-label" data-i18n="unoSetupHumansLabel">จำนวนผู้เล่น (คน):</span>
+            <span class="uno-setup-desc" data-i18n="unoSetupHumansDesc">ที่นั่งสำหรับผู้เล่นจริงที่จะเข้ามาร่วม</span>
+          </div>
+          <div class="uno-setup-stepper">
+            <button id="uno-setup-human-minus" class="icon-btn stepper-btn" type="button">-</button>
+            <span id="uno-setup-human-count" class="stepper-val">2</span>
+            <button id="uno-setup-human-plus" class="icon-btn stepper-btn" type="button">+</button>
+          </div>
+        </div>
+
+        <!-- Bots row -->
+        <div class="uno-setup-row">
+          <div class="uno-setup-row-info">
+            <span class="uno-setup-label" data-i18n="unoSetupBotsLabel">จำนวนบอท (ตัว):</span>
+            <span class="uno-setup-desc" data-i18n="unoSetupBotsDesc">บอทที่จะร่วมเล่นในห้องนี้</span>
+          </div>
+          <div class="uno-setup-stepper">
+            <button id="uno-setup-bot-minus" class="icon-btn stepper-btn" type="button">-</button>
+            <span id="uno-setup-bot-count" class="stepper-val">2</span>
+            <button id="uno-setup-bot-plus" class="icon-btn stepper-btn" type="button">+</button>
+          </div>
+        </div>
+
+        <!-- Total summary -->
+        <div class="uno-setup-summary">
+          <span class="summary-label" data-i18n="unoSetupTotalLabel">รวมทั้งหมด:</span>
+          <span id="uno-setup-total-display" class="summary-val">4 / 8 คน</span>
+        </div>
+
+        <!-- Notice -->
+        <p class="uno-setup-hint" data-i18n="unoSetupHostNotice">💡 หัวหน้าห้องสามารถกดเริ่มเกมได้ทันทีเมื่อพร้อม โดยไม่ต้องรอให้คนครบ</p>
+      </div>
+
+      <div class="modal-actions">
+        <button id="uno-setup-confirm-btn" class="primary-btn" data-i18n="unoSetupConfirmBtn">🚀 เปิดห้องรอ</button>
+        <button id="uno-setup-cancel-btn" class="btn-secondary" data-i18n="unoSetupCancelBtn">ยกเลิก</button>
+      </div>
+    </div>
+  </div>
+
   <!-- UNO Multiplayer Waiting Room Modal -->
   <div id="uno-waiting-modal" class="modal-overlay view-hidden">
     <div class="modal-content uno-waiting-card">
@@ -520,6 +572,6 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=2.7"></script>
+  <script type="module" src="js/app.js?v=2.8"></script>
 </body>
 </html>

@@ -59,9 +59,9 @@ import {
   challengeUno,
   shoutUno,
   getAIUnoAction
-} from "./rules-uno.js?v=2.7";
+} from "./rules-uno.js?v=2.8";
 
-import { NetworkManager, MAX_ROOMS } from "./network.js?v=2.7";
+import { NetworkManager, MAX_ROOMS } from "./network.js?v=2.8";
 import {
   t,
   getLang,
@@ -109,6 +109,9 @@ class BoardGameApp {
     this.unoWaitingRoomId = null;
     this.unoInspectedBotIdx = 0;
     this.unoAutoFollow = true;
+    this.pendingUnoSetupRoomId = null;
+    this.setupHumansCount = 2;
+    this.setupBotsCount = 2;
 
     // Board state
     this.board = null;
@@ -256,6 +259,18 @@ class BoardGameApp {
       unoRemoveBotRoomBtn: document.getElementById("uno-remove-bot-room-btn"),
       unoWaitingNotice: document.getElementById("uno-waiting-notice"),
       unoLeaveWaitingBtn: document.getElementById("uno-leave-waiting-btn"),
+
+      // UNO Room Setup Modal
+      unoRoomSetupModal: document.getElementById("uno-room-setup-modal"),
+      unoSetupHumanMinus: document.getElementById("uno-setup-human-minus"),
+      unoSetupHumanPlus: document.getElementById("uno-setup-human-plus"),
+      unoSetupHumanCount: document.getElementById("uno-setup-human-count"),
+      unoSetupBotMinus: document.getElementById("uno-setup-bot-minus"),
+      unoSetupBotPlus: document.getElementById("uno-setup-bot-plus"),
+      unoSetupBotCount: document.getElementById("uno-setup-bot-count"),
+      unoSetupTotalDisplay: document.getElementById("uno-setup-total-display"),
+      unoSetupConfirmBtn: document.getElementById("uno-setup-confirm-btn"),
+      unoSetupCancelBtn: document.getElementById("uno-setup-cancel-btn"),
 
       startBotBtn: document.getElementById("start-bot-btn"),
       startBotVsBotBtn: document.getElementById("start-bot-vs-bot-btn"),
@@ -439,6 +454,33 @@ class BoardGameApp {
     }
     if (this.dom.unoLeaveWaitingBtn) {
       this.dom.unoLeaveWaitingBtn.addEventListener("click", () => this.handleLeaveUnoWaitingRoom());
+    }
+
+    // UNO Room Setup Modal Listeners
+    if (this.dom.unoSetupHumanMinus) {
+      this.dom.unoSetupHumanMinus.addEventListener("click", () => this.handleSetupHumanChange(-1));
+    }
+    if (this.dom.unoSetupHumanPlus) {
+      this.dom.unoSetupHumanPlus.addEventListener("click", () => this.handleSetupHumanChange(1));
+    }
+    if (this.dom.unoSetupBotMinus) {
+      this.dom.unoSetupBotMinus.addEventListener("click", () => this.handleSetupBotChange(-1));
+    }
+    if (this.dom.unoSetupBotPlus) {
+      this.dom.unoSetupBotPlus.addEventListener("click", () => this.handleSetupBotChange(1));
+    }
+    if (this.dom.unoSetupConfirmBtn) {
+      this.dom.unoSetupConfirmBtn.addEventListener("click", () => this.handleConfirmUnoSetup());
+    }
+    if (this.dom.unoSetupCancelBtn) {
+      this.dom.unoSetupCancelBtn.addEventListener("click", () => this.handleCancelUnoSetup());
+    }
+    if (this.dom.unoRoomSetupModal) {
+      this.dom.unoRoomSetupModal.addEventListener("click", (e) => {
+        if (e.target === this.dom.unoRoomSetupModal) {
+          this.handleCancelUnoSetup();
+        }
+      });
     }
 
     // UNO Network Callbacks
@@ -758,6 +800,9 @@ class BoardGameApp {
     if (this.disconnectCountdownTimer) {
       this.updateDisconnectNotice();
     }
+    if (this.dom.unoRoomSetupModal && !this.dom.unoRoomSetupModal.classList.contains("view-hidden")) {
+      this.updateUnoSetupUI();
+    }
     if (this.dom.unoWaitingModal && !this.dom.unoWaitingModal.classList.contains("view-hidden")) {
       const room = this.network.roomsState[this.network.currentRoomId];
       if (room && room.players) {
@@ -994,10 +1039,18 @@ class BoardGameApp {
       return;
     }
 
+    const existingRoom = this.network.roomsState[roomId];
+    const isUno = (this.activeCategory === "uno" || this.activeMode.startsWith("uno") || (existingRoom && existingRoom.mode && existingRoom.mode.startsWith("uno")));
+
+    // If joining an empty room as host for an UNO match, show setup modal first!
+    if (!asSpectator && isUno && (!existingRoom || existingRoom.status === "empty" || !existingRoom.players || existingRoom.players.length === 0)) {
+      this.openUnoRoomSetupModal(roomId);
+      return;
+    }
+
     this.turnTimeLimit = 60;
     this.timeRemaining = 60;
     this.mode = "online";
-    const existingRoom = this.network.roomsState[roomId];
 
     // If room already has a host and established mode, adopt the room's mode!
     if (existingRoom && existingRoom.mode) {
@@ -1262,6 +1315,10 @@ class BoardGameApp {
     if (this.dom.unoWaitingModal) {
       this.dom.unoWaitingModal.classList.add("view-hidden");
     }
+    if (this.dom.unoRoomSetupModal) {
+      this.dom.unoRoomSetupModal.classList.add("view-hidden");
+    }
+    this.pendingUnoSetupRoomId = null;
     if (this.dom.unoSuitModal) {
       this.dom.unoSuitModal.classList.add("view-hidden");
     }
@@ -2353,6 +2410,87 @@ class BoardGameApp {
     }
   }
 
+  openUnoRoomSetupModal(roomId) {
+    this.pendingUnoSetupRoomId = roomId;
+    this.setupHumansCount = 2;
+    this.setupBotsCount = 2;
+    this.updateUnoSetupUI();
+    if (this.dom.unoRoomSetupModal) {
+      this.dom.unoRoomSetupModal.classList.remove("view-hidden");
+    }
+  }
+
+  handleSetupHumanChange(delta) {
+    const nextHumans = this.setupHumansCount + delta;
+    if (nextHumans < 1) return;
+    if (nextHumans + this.setupBotsCount > 8) return;
+    this.setupHumansCount = nextHumans;
+    this.updateUnoSetupUI();
+  }
+
+  handleSetupBotChange(delta) {
+    const nextBots = this.setupBotsCount + delta;
+    if (nextBots < 0) return;
+    if (nextBots + this.setupHumansCount > 8) return;
+    this.setupBotsCount = nextBots;
+    this.updateUnoSetupUI();
+  }
+
+  updateUnoSetupUI() {
+    if (this.dom.unoSetupHumanCount) this.dom.unoSetupHumanCount.textContent = this.setupHumansCount;
+    if (this.dom.unoSetupBotCount) this.dom.unoSetupBotCount.textContent = this.setupBotsCount;
+    const total = this.setupHumansCount + this.setupBotsCount;
+    if (this.dom.unoSetupTotalDisplay) {
+      this.dom.unoSetupTotalDisplay.textContent = t("unoSetupTotalPlayers").replace("{n}", total);
+    }
+    if (this.dom.unoSetupConfirmBtn) {
+      this.dom.unoSetupConfirmBtn.disabled = total < 2;
+    }
+  }
+
+  handleConfirmUnoSetup() {
+    const roomId = this.pendingUnoSetupRoomId;
+    if (!roomId) return;
+    if (this.setupHumansCount + this.setupBotsCount < 2) {
+      alert(t("unoSetupMinAlert"));
+      return;
+    }
+    if (this.dom.unoRoomSetupModal) {
+      this.dom.unoRoomSetupModal.classList.add("view-hidden");
+    }
+    this.createUnoWaitingRoom(roomId, this.setupHumansCount, this.setupBotsCount);
+  }
+
+  handleCancelUnoSetup() {
+    this.pendingUnoSetupRoomId = null;
+    if (this.dom.unoRoomSetupModal) {
+      this.dom.unoRoomSetupModal.classList.add("view-hidden");
+    }
+  }
+
+  createUnoWaitingRoom(roomId, humansCount, botsCount) {
+    this.turnTimeLimit = 60;
+    this.timeRemaining = 60;
+    this.mode = "online";
+
+    const botsList = [];
+    for (let i = 1; i <= botsCount; i++) {
+      botsList.push({
+        id: "bot_" + Math.random().toString(36).substring(2, 7),
+        botNum: i,
+        name: `${t("botName")} ${i}`,
+        isBot: true,
+        isHost: false,
+        cardCount: 7
+      });
+    }
+
+    const res = this.network.createUnoRoom(roomId, this.activeMode, humansCount, botsList);
+    this.role = res.role;
+    this.unoWaitingRoomId = roomId;
+    this.showUnoWaitingModal(res.roomState);
+  }
+
   showUnoWaitingModal(room) {
     if (this.dom.unoWaitingModal) {
       this.dom.unoWaitingModal.classList.remove("view-hidden");
@@ -2569,14 +2707,16 @@ class BoardGameApp {
         const count = this.unoState.hands[idx] ? this.unoState.hands[idx].length : 0;
         const isUno = count === 1;
         const pName = player.isBot ? `${t("botName")} ${player.botNum || (idx + 1)}` : player.name;
+        const shortName = player.isBot ? (player.botNum || (idx + 1)) : player.name;
 
         seat.innerHTML = `
           <span class="seat-avatar">${player.isBot ? '🤖' : '👤'}</span>
           <div class="seat-info">
-            <span class="seat-name">${pName}</span>
+            <span class="seat-name seat-name-full">${pName}</span>
+            <span class="seat-name seat-name-short">${shortName}</span>
             <span class="seat-cards-badge">🎴 ${count}</span>
           </div>
-          ${isInspected ? `<span class="seat-inspect-pill">👁️ ${t("inspectingBadge")}</span>` : ''}
+          ${isInspected ? `<span class="seat-inspect-pill"><span class="inspect-text-full">👁️ ${t("inspectingBadge")}</span><span class="inspect-text-short">👁️</span></span>` : ''}
           ${isUno ? `<span class="seat-uno-pill">UNO!</span>` : ''}
         `;
 
@@ -2625,10 +2765,11 @@ class BoardGameApp {
         this.dom.unoSpectatorBar.classList.remove("view-hidden");
         const inspectedPlayer = this.unoPlayers[inspectedIdx];
         const pName = inspectedPlayer ? (inspectedPlayer.isBot ? `${t("botName")} ${inspectedPlayer.botNum || (inspectedIdx + 1)}` : inspectedPlayer.name) : `${t("botName")} 1`;
+        const shortPName = inspectedPlayer ? (inspectedPlayer.isBot ? `🤖 ${inspectedPlayer.botNum || (inspectedIdx + 1)}` : inspectedPlayer.name) : `🤖 1`;
         const isThinking = this.unoState.currentTurn === inspectedIdx;
         const statusNote = isThinking ? ` (${t("botThinkingStatus")})` : "";
         if (this.dom.unoSpectatorTitle) {
-          this.dom.unoSpectatorTitle.innerHTML = `${t("unoSpectatorHandLabel")}: <strong>${pName}</strong>${statusNote}`;
+          this.dom.unoSpectatorTitle.innerHTML = `${t("unoSpectatorHandLabel")}: <strong><span class="seat-name-full">${pName}</span><span class="seat-name-short">${shortPName}</span></strong>${statusNote}`;
         }
         if (this.dom.unoAutoFollowBtn) {
           this.dom.unoAutoFollowBtn.classList.toggle("active", this.unoAutoFollow);

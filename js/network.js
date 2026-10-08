@@ -397,6 +397,54 @@ export class NetworkManager {
     }, 1800);
   }
 
+  createUnoRoom(roomId, gameMode, maxHumans, initialBots = []) {
+    this.currentRoomId = roomId;
+    const room = this.roomsState[roomId];
+
+    if (this.mqttClient) {
+      try {
+        this.mqttClient.subscribe(ROOM_TOPIC_PREFIX + roomId);
+      } catch (e) {}
+    }
+
+    room.mode = gameMode;
+    room.status = "waiting";
+    room.maxHumans = maxHumans;
+
+    const hostObj = {
+      id: this.clientId,
+      name: this.getNickname(),
+      isHost: true,
+      isBot: false,
+      cardCount: 7
+    };
+
+    room.players = [hostObj, ...initialBots];
+    this.role = "player1";
+    room.p1 = hostObj;
+    room.p2 = room.players[1] || null;
+
+    // Broadcast JOIN / State in room
+    this.broadcast(ROOM_TOPIC_PREFIX + roomId, {
+      type: "ROOM_JOIN",
+      senderId: this.clientId,
+      senderName: this.getNickname(),
+      roomId,
+      role: this.role,
+      mode: room.mode,
+      players: room.players
+    });
+
+    // Broadcast to lobby immediately
+    this.sendRoomHeartbeat();
+
+    return {
+      roomId,
+      role: this.role,
+      roomState: room
+    };
+  }
+
   joinRoom(roomId, asSpectator = false, gameMode = null) {
     this.currentRoomId = roomId;
     const room = this.roomsState[roomId];
@@ -424,13 +472,20 @@ export class NetworkManager {
           room.players[existingIdx].name = this.getNickname();
           this.role = room.players[existingIdx].isHost ? "player1" : ("player" + (existingIdx + 1));
         } else if (room.status !== "playing" && room.players.length < 8) {
-          const isHost = room.players.length === 0;
-          const pObj = { id: this.clientId, name: this.getNickname(), isHost, cardCount: 7 };
-          room.players.push(pObj);
-          this.role = isHost ? "player1" : ("player" + room.players.length);
-          room.p1 = room.players[0];
-          room.p2 = room.players[1] || null;
-          room.status = "waiting";
+          const currentHumans = room.players.filter(p => !p.isBot).length;
+          const maxHumans = room.maxHumans || 8;
+          if (currentHumans < maxHumans) {
+            const isHost = room.players.length === 0;
+            const pObj = { id: this.clientId, name: this.getNickname(), isHost, isBot: false, cardCount: 7 };
+            room.players.push(pObj);
+            this.role = isHost ? "player1" : ("player" + room.players.length);
+            room.p1 = room.players[0];
+            room.p2 = room.players[1] || null;
+            room.status = "waiting";
+          } else {
+            this.role = "spectator";
+            this.addSpectator(room, this.clientId, this.getNickname());
+          }
         } else {
           this.role = "spectator";
           this.addSpectator(room, this.clientId, this.getNickname());
