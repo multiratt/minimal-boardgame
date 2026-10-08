@@ -7,7 +7,7 @@ const ROOM_TOPIC_PREFIX = "minimal_board_games_v4/room/";
 const BROADCAST_CHANNEL_NAME = "minimal_board_games_v4_bc";
 
 const BROKERS = [
-  "wss://broker.hivemq.com:8884/mqtt"
+  "wss://broker.emqx.io:8084/mqtt"
 ];
 
 export class NetworkManager {
@@ -132,13 +132,11 @@ export class NetworkManager {
     }
 
     const brokerUrl = BROKERS[0];
-    const mqttClientId = (this.clientId || "user") + "_" + Math.random().toString(36).substring(2, 7);
-
     try {
       this.mqttClient = mqttObj.connect(brokerUrl, {
-        clientId: mqttClientId,
+        clientId: this.clientId,
         clean: true,
-        connectTimeout: 30000,
+        connectTimeout: 15000,
         reconnectPeriod: 3000
       });
 
@@ -283,6 +281,7 @@ export class NetworkManager {
               mode: null,
               p1: null,
               p2: null,
+              players: [],
               spectators: 0,
               spectatorList: [],
               lastHeartbeat: 0
