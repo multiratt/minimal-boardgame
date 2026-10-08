@@ -1736,19 +1736,19 @@ class BoardGameApp {
   getBotVsBotThinkDelay() {
     const r = Math.random();
     let seconds;
-    if (r < 0.35) {
-      // 35% quick response: 2.5s - 9.0s
-      seconds = 2.5 + Math.random() * 6.5;
-    } else if (r < 0.75) {
-      // 40% thoughtful move: 9.0s - 26.0s
-      seconds = 9.0 + Math.random() * 17.0;
+    if (r < 0.40) {
+      // 40% quick response: 2.0s - 7.0s
+      seconds = 2.0 + Math.random() * 5.0;
+    } else if (r < 0.80) {
+      // 40% thoughtful move: 7.0s - 18.0s
+      seconds = 7.0 + Math.random() * 11.0;
     } else {
-      // 25% deep think: 26.0s - 44.5s (strictly <= 45s)
-      seconds = 26.0 + Math.random() * 18.5;
+      // 20% deep think: 18.0s - 29.5s (strictly <= 30s)
+      seconds = 18.0 + Math.random() * 11.5;
     }
-    const maxAllowedMs = Math.max(1500, (this.timeRemaining - 1) * 1000);
+    const maxAllowedMs = Math.max(1000, (this.timeRemaining - 1) * 1000);
     const chosenMs = Math.round(seconds * 1000);
-    return Math.min(44500, Math.min(chosenMs, maxAllowedMs));
+    return Math.min(29800, Math.min(chosenMs, maxAllowedMs));
   }
 
   triggerBotTurn() {
@@ -2389,20 +2389,14 @@ class BoardGameApp {
     const div = document.createElement("div");
     const sym = SUIT_SYMBOLS[card.suit] || "★";
     const valDisplay = ACTION_SYMBOLS[card.value] || card.value;
+    const isAction = isNaN(Number(card.value));
+    const isWildWord = card.value === "wild";
     div.className = `uno-card ${isPlayable ? 'playable' : 'unplayable'}`;
     div.setAttribute("data-card-id", card.id);
     div.innerHTML = `
-      <div class="card-corner top-left">
-        <span class="corner-sym">${sym}</span>
-        <span class="corner-val">${valDisplay}</span>
-      </div>
-      <div class="card-center">
-        <span class="center-sym">${sym}</span>
-        <span class="center-val">${valDisplay}</span>
-      </div>
-      <div class="card-corner bottom-right">
-        <span class="corner-sym">${sym}</span>
-        <span class="corner-val">${valDisplay}</span>
+      <div class="card-inner">
+        <span class="card-sym">${sym}</span>
+        <span class="card-val ${isWildWord ? 'is-wild' : (isAction ? 'is-action' : '')}">${valDisplay}</span>
       </div>
     `;
     return div;
@@ -2412,19 +2406,13 @@ class BoardGameApp {
     if (!card || !this.dom.unoDiscardPile) return;
     const sym = SUIT_SYMBOLS[card.suit] || "★";
     const valDisplay = ACTION_SYMBOLS[card.value] || card.value;
+    const isAction = isNaN(Number(card.value));
+    const isWildWord = card.value === "wild";
     this.dom.unoDiscardPile.className = "uno-card";
     this.dom.unoDiscardPile.innerHTML = `
-      <div class="card-corner top-left">
-        <span class="corner-sym">${sym}</span>
-        <span class="corner-val">${valDisplay}</span>
-      </div>
-      <div class="card-center">
-        <span class="center-sym">${sym}</span>
-        <span class="center-val">${valDisplay}</span>
-      </div>
-      <div class="card-corner bottom-right">
-        <span class="corner-sym">${sym}</span>
-        <span class="corner-val">${valDisplay}</span>
+      <div class="card-inner">
+        <span class="card-sym">${sym}</span>
+        <span class="card-val ${isWildWord ? 'is-wild' : (isAction ? 'is-action' : '')}">${valDisplay}</span>
       </div>
     `;
   }

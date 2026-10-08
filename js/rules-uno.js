@@ -15,8 +15,8 @@ export const ACTION_SYMBOLS = {
   skip: "🚫",
   reverse: "🔄",
   draw2: "+2",
-  wild: "★",
-  wild4: "★+4"
+  wild: "WILD",
+  wild4: "+4"
 };
 
 export const RULE_UNO_STANDARD = "uno_standard";
