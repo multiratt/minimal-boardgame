@@ -1726,6 +1726,32 @@ button, .square, .piece, .rule-btn, .lang-btn, .icon-btn, .diff-btn {
   animation: unoPulse 0.8s infinite ease-in-out;
 }
 
+.uno-seat.clickable-seat {
+  cursor: pointer;
+}
+
+.uno-seat.clickable-seat:hover {
+  transform: translateY(-2px) scale(1.05);
+  border-color: rgba(255, 255, 255, 0.65);
+  background: rgba(30, 32, 40, 0.95);
+}
+
+.uno-seat.is-inspected {
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.55) !important;
+}
+
+.seat-inspect-pill {
+  background: rgba(56, 189, 248, 0.2);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 0.1rem 0.35rem;
+  border-radius: 6px;
+  animation: unoPulse 1.2s infinite ease-in-out;
+}
+
 /* 2. Center Game Table: Draw, Discard, Status */
 .uno-center-table {
   display: flex;
@@ -1809,6 +1835,65 @@ button, .square, .piece, .rule-btn, .lang-btn, .icon-btn, .diff-btn {
   gap: 0.6rem;
 }
 
+/* Spectator Hand Inspector Bar */
+.uno-spectator-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 620px;
+  padding: 0.35rem 0.8rem;
+  background: rgba(18, 19, 23, 0.92);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 10px;
+  font-size: 0.78rem;
+  gap: 0.5rem;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+}
+
+.uno-spectator-info {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.uno-spectator-eye {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.uno-spectator-title {
+  color: var(--text-main);
+  font-size: 0.78rem;
+}
+
+.uno-spectator-title strong {
+  color: #38bdf8;
+  font-weight: 700;
+}
+
+.uno-spectator-hint {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.uno-auto-follow-btn {
+  font-size: 0.72rem;
+  padding: 0.25rem 0.65rem;
+  white-space: nowrap;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.uno-auto-follow-btn.active {
+  background: rgba(56, 189, 248, 0.18);
+  border-color: #38bdf8;
+  color: #38bdf8;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.35);
+}
+
 .uno-hand-container {
   display: flex;
   justify-content: center;
@@ -1860,6 +1945,54 @@ button, .square, .piece, .rule-btn, .lang-btn, .icon-btn, .diff-btn {
   opacity: 0.4;
   cursor: not-allowed;
   filter: grayscale(0.5);
+}
+
+.uno-card.bot-card-selected {
+  transform: translateY(-24px) scale(1.14) !important;
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 22px rgba(56, 189, 248, 0.9), 0 10px 24px rgba(0, 0, 0, 0.9) !important;
+  z-index: 50 !important;
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+
+.uno-card.card-just-played {
+  animation: cardPlacedDown 0.38s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes cardPlacedDown {
+  0% {
+    transform: scale(1.24) translateY(-16px);
+    opacity: 0.65;
+    box-shadow: 0 0 22px rgba(255, 255, 255, 0.85);
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.75);
+  }
+}
+
+.uno-card.view-only {
+  cursor: default;
+}
+
+.uno-card.view-only.playable:hover {
+  transform: translateY(-6px) scale(1.03);
+}
+
+.player-box.clickable-player {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.player-box.clickable-player:hover {
+  border-color: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.player-box.is-inspected-player {
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.35) !important;
 }
 
 .card-inner {

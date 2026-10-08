@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Minimal Board Games - หมากฮอส & หมากรุกขาวดำ</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
-  <link rel="stylesheet" href="css/style.css?v=2.6">
-  <link rel="stylesheet" href="css/animations.css?v=2.6">
+  <link rel="stylesheet" href="css/style.css?v=2.7">
+  <link rel="stylesheet" href="css/animations.css?v=2.7">
   <!-- Bundled local libraries for 100% offline & GitHub Pages support -->
   <script src="mqtt.min.js"></script>
   <script src="chess.min.js"></script>
@@ -230,10 +230,18 @@
 
               <!-- Player Area (Bottom) -->
               <div class="uno-player-area">
-                <div class="uno-player-controls">
+                <div id="uno-player-controls" class="uno-player-controls">
                   <button id="uno-action-draw-btn" class="btn-secondary" data-i18n="unoDrawBtn">จั่วไพ่</button>
                   <button id="uno-action-pass-btn" class="btn-secondary view-hidden" data-i18n="unoPassBtn">ผ่าน</button>
                   <button id="uno-shout-btn" class="uno-shout-btn view-hidden" data-i18n="unoShoutBtn">⚡ UNO!</button>
+                </div>
+                <div id="uno-spectator-bar" class="uno-spectator-bar view-hidden">
+                  <div class="uno-spectator-info">
+                    <span class="uno-spectator-eye">👁️</span>
+                    <span id="uno-spectator-title" class="uno-spectator-title">ไพ่ในมือของ: <strong>บอท 1</strong></span>
+                    <span id="uno-spectator-hint" class="uno-spectator-hint" data-i18n="unoSpectatorHint">(คลิกที่ตัวบอทเพื่อสลับดูไพ่)</span>
+                  </div>
+                  <button id="uno-auto-follow-btn" class="btn-secondary uno-auto-follow-btn" data-i18n="unoAutoFollowBtn">🔄 ตามตาเดิน</button>
                 </div>
                 <div id="uno-hand-container" class="uno-hand-container">
                   <!-- Player hand cards rendered here -->
@@ -512,6 +520,6 @@
     </div>
   </div>
 
-  <script type="module" src="js/app.js?v=2.6"></script>
+  <script type="module" src="js/app.js?v=2.7"></script>
 </body>
 </html>

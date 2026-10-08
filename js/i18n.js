@@ -182,6 +182,14 @@ export const translations = {
     unoDrawPileTitle: "จั่วไพ่",
     unoDirectionTitle: "ทิศทางการเล่น",
     unoMinPlayersAlert: "ต้องการผู้เล่นอย่างน้อย 2 คน (กด + เพิ่มบอท ได้)",
+    unoSpectatorHandLabel: "ไพ่ในมือของ",
+    unoSpectatorHint: "(คลิกที่ตัวบอทเพื่อสลับดูไพ่)",
+    unoAutoFollowBtn: "ตามตาเดิน",
+    unoAutoFollowOn: "🔄 ตามตาเดิน (เปิด)",
+    unoAutoFollowOff: "👁️ ล็อกดูบอทนี้",
+    inspectingBadge: "กำลังดูไพ่",
+    botThinkingStatus: "กำลังคิด...",
+    botPlayingStatus: "กำลังลงไพ่...",
 
     // Stalling / Repetition Endgame Rule
     endgameRuleDesc: "• กติกาเดินหนี: หากไม่มีการกินติดต่อกัน 10 ตาเดิน จะเริ่มนับถอยหลังอีก 20 ตาเดิน หากครบแล้วยังไม่จบจะตัดสินให้ฝ่ายที่มีหมากมากกว่าชนะทันที",
@@ -438,6 +446,14 @@ export const translations = {
     unoDrawPileTitle: "Draw Card",
     unoDirectionTitle: "Play Direction",
     unoMinPlayersAlert: "At least 2 players required (Click + Add Bot to play)",
+    unoSpectatorHandLabel: "Hand of",
+    unoSpectatorHint: "(Click any bot to view hand)",
+    unoAutoFollowBtn: "Auto-Follow",
+    unoAutoFollowOn: "🔄 Auto-Follow (On)",
+    unoAutoFollowOff: "👁️ Locked to Bot",
+    inspectingBadge: "Inspecting",
+    botThinkingStatus: "thinking...",
+    botPlayingStatus: "playing...",
 
     // Stalling / Repetition Endgame Rule
     endgameRuleDesc: "• Stalling Rule: If 10 consecutive turns pass without any capture, a 20-turn countdown begins. If game doesn't end, player with most pieces wins.",
