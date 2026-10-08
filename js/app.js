@@ -687,7 +687,6 @@ class BoardGameApp {
     } else if (this.mode === "online") {
       this.updateOnlinePlayerNames(this.network.roomsState[this.network.currentRoomId]);
     }
-    this.renderPlayersList();
     if (this.isEndgameCountdownActive) {
       this.dom.endgameTurnBadge.textContent = t("endgameCountdownBadge").replace("{n}", this.endgameMovesRemaining);
     }
@@ -830,6 +829,8 @@ class BoardGameApp {
 
   // --- START GAME ---
   startBotGame() {
+    this.turnTimeLimit = 30;
+    this.timeRemaining = 30;
     this.updateSpectatorsUI(null);
     if (this.modeIsUno()) {
       this.mode = "bot";
@@ -872,6 +873,8 @@ class BoardGameApp {
   }
 
   startBotVsBotGame() {
+    this.turnTimeLimit = 45;
+    this.timeRemaining = 45;
     this.updateSpectatorsUI(null);
     this.mode = "bot_vs_bot";
     this.role = "spectator";
@@ -919,6 +922,8 @@ class BoardGameApp {
   }
 
   joinOnlineRoom(roomId, asSpectator = false) {
+    this.turnTimeLimit = 30;
+    this.timeRemaining = 30;
     this.mode = "online";
     const existingRoom = this.network.roomsState[roomId];
 
@@ -1121,7 +1126,6 @@ class BoardGameApp {
         if (this.activeMode === "othello") this.dom.capturedCard.classList.add("view-hidden");
         else this.dom.capturedCard.classList.remove("view-hidden");
       }
-      this.renderPlayersList();
     }
 
     this.renderSidebarRules();
@@ -1160,6 +1164,8 @@ class BoardGameApp {
   }
 
   exitToLobby() {
+    this.turnTimeLimit = 30;
+    this.timeRemaining = 30;
     this.stopTurnTimer();
     this.clearDisconnectCountdown();
     this.clearPauseSession();
@@ -1249,7 +1255,6 @@ class BoardGameApp {
 
     this.updateCapturedUI();
     this.renderBoard();
-    this.renderPlayersList();
     this.updateTurnUI();
     this.updatePieceCounts();
 
@@ -1725,10 +1730,30 @@ class BoardGameApp {
     }
   }
 
+  getBotVsBotThinkDelay() {
+    const r = Math.random();
+    let seconds;
+    if (r < 0.40) {
+      // 40% quick response: 2.0s - 7.5s
+      seconds = 2.0 + Math.random() * 5.5;
+    } else if (r < 0.80) {
+      // 40% thoughtful move: 7.5s - 22.0s
+      seconds = 7.5 + Math.random() * 14.5;
+    } else {
+      // 20% deep think: 22.0s - 43.5s
+      seconds = 22.0 + Math.random() * 21.5;
+    }
+    const maxAllowedMs = Math.max(1500, (this.timeRemaining - 1) * 1000);
+    const chosenMs = Math.round(seconds * 1000);
+    return Math.min(44000, Math.min(chosenMs, maxAllowedMs));
+  }
+
   triggerBotTurn() {
     if (this.botTimeout) clearTimeout(this.botTimeout);
-    const baseDelay = this.mode === "bot_vs_bot" ? 650 : 380;
-    const delay = Math.random() * 250 + baseDelay;
+    const isMultiJump = !!this.multiJumpFrom;
+    const delay = isMultiJump
+      ? 450
+      : (this.mode === "bot_vs_bot" ? this.getBotVsBotThinkDelay() : (Math.random() * 250 + 380));
     this.botTimeout = setTimeout(() => {
       this.botTimeout = null;
       if (this.isGameOver || this.isPaused) return;
@@ -2361,24 +2386,20 @@ class BoardGameApp {
     const div = document.createElement("div");
     const sym = SUIT_SYMBOLS[card.suit] || "★";
     const valDisplay = ACTION_SYMBOLS[card.value] || card.value;
-    const isAction = isNaN(Number(card.value));
-    const suitClass = `suit-${card.suit}`;
-    div.className = `uno-card ${suitClass} ${isPlayable ? 'playable' : 'unplayable'}`;
+    div.className = `uno-card ${isPlayable ? 'playable' : 'unplayable'}`;
     div.setAttribute("data-card-id", card.id);
     div.innerHTML = `
-      <div class="card-inner-frame">
-        <div class="card-corner top-left">
-          <span class="corner-val">${valDisplay}</span>
-          <span class="corner-sym">${sym}</span>
-        </div>
-        <div class="card-center ${isAction ? 'is-action' : 'is-number'}">
-          <span class="center-watermark">${sym}</span>
-          <span class="center-glyph">${valDisplay}</span>
-        </div>
-        <div class="card-corner bottom-right">
-          <span class="corner-val">${valDisplay}</span>
-          <span class="corner-sym">${sym}</span>
-        </div>
+      <div class="card-corner top-left">
+        <span class="corner-sym">${sym}</span>
+        <span class="corner-val">${valDisplay}</span>
+      </div>
+      <div class="card-center">
+        <span class="center-sym">${sym}</span>
+        <span class="center-val">${valDisplay}</span>
+      </div>
+      <div class="card-corner bottom-right">
+        <span class="corner-sym">${sym}</span>
+        <span class="corner-val">${valDisplay}</span>
       </div>
     `;
     return div;
@@ -2388,23 +2409,19 @@ class BoardGameApp {
     if (!card || !this.dom.unoDiscardPile) return;
     const sym = SUIT_SYMBOLS[card.suit] || "★";
     const valDisplay = ACTION_SYMBOLS[card.value] || card.value;
-    const isAction = isNaN(Number(card.value));
-    const suitClass = `suit-${card.suit}`;
-    this.dom.unoDiscardPile.className = `uno-card ${suitClass}`;
+    this.dom.unoDiscardPile.className = "uno-card";
     this.dom.unoDiscardPile.innerHTML = `
-      <div class="card-inner-frame">
-        <div class="card-corner top-left">
-          <span class="corner-val">${valDisplay}</span>
-          <span class="corner-sym">${sym}</span>
-        </div>
-        <div class="card-center ${isAction ? 'is-action' : 'is-number'}">
-          <span class="center-watermark">${sym}</span>
-          <span class="center-glyph">${valDisplay}</span>
-        </div>
-        <div class="card-corner bottom-right">
-          <span class="corner-val">${valDisplay}</span>
-          <span class="corner-sym">${sym}</span>
-        </div>
+      <div class="card-corner top-left">
+        <span class="corner-sym">${sym}</span>
+        <span class="corner-val">${valDisplay}</span>
+      </div>
+      <div class="card-center">
+        <span class="center-sym">${sym}</span>
+        <span class="center-val">${valDisplay}</span>
+      </div>
+      <div class="card-corner bottom-right">
+        <span class="corner-sym">${sym}</span>
+        <span class="corner-val">${valDisplay}</span>
       </div>
     `;
   }
@@ -2504,117 +2521,57 @@ class BoardGameApp {
     this.updateUnoTurnStatusUI();
   }
 
-  renderPlayersList() {
-    if (!this.dom.playersList) return;
-
-    if (this.modeIsUno()) {
-      if (!this.unoPlayers || this.unoPlayers.length === 0) return;
-      this.dom.playersList.innerHTML = "";
-
-      this.unoPlayers.forEach((player, idx) => {
-        const isTurn = this.unoState && this.unoState.currentTurn === idx;
-        const isSelf = (idx === this.myUnoIndex && this.role !== "spectator");
-        const count = this.unoState && this.unoState.hands[idx] ? this.unoState.hands[idx].length : 0;
-        const hasUno = this.unoState && this.unoState.calledUno && this.unoState.calledUno[idx];
-
-        let displayName = "";
-        let avatarIcon = "👤";
-
-        if (player.isBot) {
-          avatarIcon = "🤖";
-          displayName = player.name || `${t("botName")} ${player.botNum || (idx + 1)}`;
-        } else if (isSelf) {
-          avatarIcon = player.isHost ? "👑" : "👤";
-          const nick = this.network.getNickname() || player.name || t("defaultPlayerName");
-          displayName = `${nick} (${t("youLabel")})`;
-        } else {
-          avatarIcon = player.isHost ? "👑" : "👤";
-          displayName = player.name || `${t("defaultPlayerName")} ${idx + 1}`;
-        }
-
-        const box = document.createElement("div");
-        box.className = `player-box ${isTurn ? "active-turn-ring" : ""} ${isSelf ? "is-me" : ""}`;
-        box.innerHTML = `
-          <div class="player-tag">
-            <span class="player-avatar" style="font-size: 1.1rem; line-height: 1;">${avatarIcon}</span>
-            <span class="player-name-text">${displayName}</span>
-          </div>
-          <div class="player-right-info" style="display: flex; align-items: center; gap: 0.35rem;">
-            ${hasUno ? `<span class="uno-shout-pill" style="font-size: 0.65rem; padding: 2px 6px; background: var(--accent-red); color: #fff; border-radius: 999px; font-weight: 700;">UNO!</span>` : ""}
-            <span class="piece-count-badge">${count}</span>
-          </div>
-        `;
-        this.dom.playersList.appendChild(box);
-      });
-      return;
-    }
-
-    // For 2-player board games (Checkers, Chess, Othello)
-    if (!document.getElementById("white-player-box") || !document.getElementById("black-player-box")) {
-      this.dom.playersList.innerHTML = `
-        <div id="white-player-box" class="player-box active-turn-ring">
-          <div class="player-tag">
-            <span class="player-dot dot-white"></span>
-            <span id="white-player-name" class="player-name-text">${t("playerWhite")}</span>
-          </div>
-          <span id="white-pieces-count" class="piece-count-badge">0</span>
-        </div>
-        <div id="black-player-box" class="player-box">
-          <div class="player-tag">
-            <span class="player-dot dot-black"></span>
-            <span id="black-player-name" class="player-name-text">${t("playerBlack")}</span>
-          </div>
-          <span id="black-pieces-count" class="piece-count-badge">0</span>
-        </div>
-      `;
-      this.dom.whitePlayerBox = document.getElementById("white-player-box");
-      this.dom.blackPlayerBox = document.getElementById("black-player-box");
-      this.dom.whitePlayerName = document.getElementById("white-player-name");
-      this.dom.blackPlayerName = document.getElementById("black-player-name");
-      this.dom.whitePiecesCount = document.getElementById("white-pieces-count");
-      this.dom.blackPiecesCount = document.getElementById("black-pieces-count");
-    }
-
-    if (this.mode === "bot_vs_bot") {
-      const diffTitle = t(`diff${this.botDifficulty.charAt(0).toUpperCase() + this.botDifficulty.slice(1)}`);
-      if (this.dom.whitePlayerName) this.dom.whitePlayerName.textContent = `🤖 ${t("botName")} 1 (${diffTitle})`;
-      if (this.dom.blackPlayerName) this.dom.blackPlayerName.textContent = `🤖 ${t("botName")} 2 (${diffTitle})`;
-    } else if (this.mode === "bot") {
-      this.updateBotPlayerNames();
-    } else if (this.mode === "online") {
-      this.updateOnlinePlayerNames(this.network.roomsState[this.network.currentRoomId]);
-    }
-
-    this.updateTurnUI();
-    this.updatePieceCounts();
-  }
-
   updateUnoTurnStatusUI() {
     if (!this.unoState) return;
     const currentIdx = this.unoState.currentTurn;
     const currentPlayer = this.unoPlayers[currentIdx];
-    const isMe = (currentIdx === this.myUnoIndex && this.role !== "spectator");
-
-    let currentTurnName = "";
-    if (isMe) {
-      currentTurnName = `${this.network.getNickname()} (${t("youLabel")})`;
-    } else if (currentPlayer) {
-      currentTurnName = currentPlayer.isBot
-        ? `${t("botName")} ${currentPlayer.botNum || (currentIdx + 1)}`
-        : currentPlayer.name;
-    } else {
-      currentTurnName = `${t("defaultPlayerName")} ${currentIdx + 1}`;
-    }
+    const isMe = currentIdx === this.myUnoIndex && this.role !== "spectator";
+    const name = isMe 
+      ? `${this.network.getNickname()} (${t("youLabel")})` 
+      : (currentPlayer ? (currentPlayer.isBot ? `${t("botName")} ${currentPlayer.botNum || (currentIdx + 1)}` : currentPlayer.name) : `${t("defaultPlayerName")} ${currentIdx + 1}`);
 
     if (this.dom.turnBadge) {
-      if (isMe) {
-        this.dom.turnBadge.textContent = t("turnYour");
-      } else {
-        this.dom.turnBadge.textContent = `${t("turnStatusPrefix")} ${currentTurnName}`;
-      }
+      this.dom.turnBadge.textContent = `${t("turnStatusPrefix")} ${name}`;
     }
 
-    this.renderPlayersList();
+    if (this.dom.whitePlayerBox && this.dom.blackPlayerBox) {
+      if (isMe) {
+        this.dom.whitePlayerBox.classList.add("active-turn-ring");
+        this.dom.blackPlayerBox.classList.remove("active-turn-ring");
+      } else {
+        this.dom.whitePlayerBox.classList.remove("active-turn-ring");
+        this.dom.blackPlayerBox.classList.add("active-turn-ring");
+      }
+
+      if (this.dom.whitePlayerName) {
+        if (this.role === "spectator") {
+          const p1 = this.unoPlayers[0];
+          this.dom.whitePlayerName.textContent = p1 ? (p1.isBot ? `${t("botName")} 1` : p1.name) : `${t("defaultPlayerName")} 1`;
+        } else {
+          this.dom.whitePlayerName.textContent = `${this.network.getNickname()} (${t("youLabel")})`;
+        }
+      }
+      if (this.dom.whitePiecesCount) {
+        const whiteIdx = this.role === "spectator" ? 0 : this.myUnoIndex;
+        this.dom.whitePiecesCount.textContent = this.unoState.hands[whiteIdx]?.length || 0;
+      }
+
+      if (this.dom.blackPlayerName) {
+        if (isMe) {
+          const nextIdx = (currentIdx + 1) % this.unoPlayers.length;
+          const nextP = this.unoPlayers[nextIdx];
+          this.dom.blackPlayerName.textContent = nextP ? (nextP.isBot ? `${t("botName")} ${nextP.botNum || (nextIdx + 1)}` : nextP.name) : `${t("defaultPlayerName")} 2`;
+          if (this.dom.blackPiecesCount) {
+            this.dom.blackPiecesCount.textContent = this.unoState.hands[nextIdx]?.length || 0;
+          }
+        } else {
+          this.dom.blackPlayerName.textContent = name;
+          if (this.dom.blackPiecesCount) {
+            this.dom.blackPiecesCount.textContent = this.unoState.hands[currentIdx]?.length || 0;
+          }
+        }
+      }
+    }
   }
 
   handlePlayerPlayUnoCard(cardId) {
@@ -2745,10 +2702,11 @@ class BoardGameApp {
     if (player && player.isBot) {
       if (this.mode === "bot" || this.mode === "bot_vs_bot" || (this.mode === "online" && this.role === "player1")) {
         clearTimeout(this.botTimeout);
+        const delay = this.mode === "bot_vs_bot" ? this.getBotVsBotThinkDelay() : 900;
         this.botTimeout = setTimeout(() => {
           if (this.isGameOver || this.isPaused) return;
           this.executeBotUnoTurn(currentIdx);
-        }, 900);
+        }, delay);
       }
     }
   }

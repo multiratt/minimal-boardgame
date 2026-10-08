@@ -13,10 +13,10 @@ export const SUIT_SYMBOLS = {
 
 export const ACTION_SYMBOLS = {
   skip: "🚫",
-  reverse: "⇄",
+  reverse: "🔄",
   draw2: "+2",
   wild: "★",
-  wild4: "+4"
+  wild4: "★+4"
 };
 
 export const RULE_UNO_STANDARD = "uno_standard";

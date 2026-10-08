@@ -316,14 +316,6 @@ main {
   background-color: var(--text-main);
   color: var(--accent-black);
   border-color: var(--text-main);
-.bot-start-buttons-group {
-  display: flex;
-  gap: 0.5rem;
-  width: 100%;
-}
-
-.bot-start-buttons-group button {
-  flex: 1;
 }
 
 .primary-btn {
@@ -880,30 +872,16 @@ main {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
-  max-height: 230px;
-  overflow-y: auto;
-  scrollbar-width: thin;
 }
 
 .player-box {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.4rem 0.65rem;
+  padding: 0.45rem 0.65rem;
   background-color: var(--surface-card);
   border: 1px solid var(--surface-border);
   border-radius: 6px;
-  transition: all 0.2s ease;
-}
-
-.player-box.is-me {
-  background-color: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.22);
-}
-
-.player-avatar-icon {
-  font-size: 0.95rem;
-  line-height: 1;
 }
 
 .player-tag {
@@ -1679,135 +1657,84 @@ button, .square, .piece, .rule-btn, .lang-btn, .icon-btn, .diff-btn {
 
 /* 4. Luxury Monochrome Minimalist UNO Card Design */
 .uno-card {
-  width: 72px;
-  height: 104px;
-  background: #111215;
-  border: 1.5px solid rgba(255, 255, 255, 0.7);
-  border-radius: 11px;
+  width: 66px;
+  height: 98px;
+  background: #14161a;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 10px;
   color: #ffffff;
   display: flex;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.7), inset 0 1px 1px rgba(255, 255, 255, 0.15);
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 0.3rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.75), inset 0 1px 2px rgba(255, 255, 255, 0.2);
   user-select: none;
   flex-shrink: 0;
   position: relative;
-  transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.4, 1.2), box-shadow 0.18s ease, border-color 0.18s ease;
-  margin-left: -12px;
-  overflow: hidden;
-  box-sizing: border-box;
+  transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.4, 1.2), box-shadow 0.18s ease;
+  margin-left: -14px;
 }
 
 .uno-card:first-child {
   margin-left: 0;
 }
 
-.card-inner-frame {
-  width: 100%;
-  height: 100%;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 0.25rem 0.35rem;
-  position: relative;
-  box-sizing: border-box;
-}
-
 .uno-card.playable {
   cursor: pointer;
-  border-color: rgba(255, 255, 255, 0.85);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.8), 0 0 8px rgba(255, 255, 255, 0.15);
 }
 
 .uno-card.playable:hover {
-  transform: translateY(-18px) scale(1.1);
+  transform: translateY(-16px) scale(1.1);
   border-color: #ffffff;
-  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.95), 0 0 16px rgba(255, 255, 255, 0.65);
-  z-index: 50;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.9), 0 0 14px rgba(255, 255, 255, 0.5);
+  z-index: 30;
 }
 
 .uno-card.unplayable {
-  opacity: 0.32;
+  opacity: 0.4;
   cursor: not-allowed;
-  filter: grayscale(0.7);
+  filter: grayscale(0.5);
 }
 
-/* Corner Indexes (Single Clean Line, High Legibility) */
 .card-corner {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0.18rem;
   line-height: 1;
-  z-index: 3;
-}
-
-.card-corner.top-left {
-  align-self: flex-start;
 }
 
 .card-corner.bottom-right {
-  align-self: flex-end;
   transform: rotate(180deg);
 }
 
-.corner-val {
-  font-size: 0.76rem;
-  font-weight: 900;
-  letter-spacing: -0.3px;
-}
-
 .corner-sym {
-  font-size: 0.62rem;
+  font-size: 0.65rem;
   font-weight: 700;
-  opacity: 0.85;
 }
 
-/* Minimalist Card Center (Single Hero Glyph) */
+.corner-val {
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
 .card-center {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
+  line-height: 1;
   pointer-events: none;
 }
 
-.center-watermark {
-  position: absolute;
-  font-size: 3.2rem;
+.center-sym {
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.center-val {
+  font-size: 1.1rem;
   font-weight: 900;
-  color: rgba(255, 255, 255, 0.08);
-  user-select: none;
-  line-height: 1;
-}
-
-.center-glyph {
-  position: relative;
-  z-index: 2;
-  font-size: 2.15rem;
-  font-weight: 900;
-  letter-spacing: -1px;
-  line-height: 1;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.85);
-}
-
-.card-center.is-action .center-glyph {
-  font-size: 1.7rem;
-  letter-spacing: normal;
-}
-
-/* Suit Subtle Accent Variations */
-.uno-card.suit-wild {
-  border-color: rgba(255, 255, 255, 0.95);
-  background: radial-gradient(circle at 50% 50%, #1a1b22 0%, #0d0e11 100%);
-}
-
-.uno-card.suit-wild .center-glyph {
-  color: #ffffff;
-  text-shadow: 0 0 12px rgba(255, 255, 255, 0.7);
+  letter-spacing: -0.5px;
 }
 
 /* Card Back */
