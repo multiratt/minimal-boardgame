@@ -59,7 +59,7 @@ import {
   challengeUno,
   shoutUno,
   getAIUnoAction
-} from "./rules-uno.js";
+} from "./rules-uno.js?v=2.2";
 
 import { NetworkManager, MAX_ROOMS } from "./network.js";
 import {
