@@ -1076,6 +1076,12 @@ class BoardGameApp {
   handleOnlineRoomUpdate(room, action, meta) {
     this.updateOnlinePlayerNames(room);
 
+    if (this.modeIsUno()) {
+      if (this.dom.unoWaitingModal && !this.dom.unoWaitingModal.classList.contains("view-hidden")) {
+        this.renderUnoWaitingRoom(room);
+      }
+    }
+
     // If spectator or player 2 joins and we are player 1, send full sync state
     if (action === "join") {
       if (this.role === "player1") {

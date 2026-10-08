@@ -7,8 +7,7 @@ const ROOM_TOPIC_PREFIX = "minimal_board_games_v4/room/";
 const BROADCAST_CHANNEL_NAME = "minimal_board_games_v4_bc";
 
 const BROKERS = [
-  "wss://broker.hivemq.com:8884/mqtt",
-  "wss://broker.emqx.io:8084/mqtt"
+  "wss://broker.hivemq.com:8884/mqtt"
 ];
 
 export class NetworkManager {
@@ -132,15 +131,15 @@ export class NetworkManager {
       this.mqttClient = null;
     }
 
-    const brokerUrl = BROKERS[this.currentBrokerIndex];
+    const brokerUrl = BROKERS[0];
     const mqttClientId = (this.clientId || "user") + "_" + Math.random().toString(36).substring(2, 7);
 
     try {
       this.mqttClient = mqttObj.connect(brokerUrl, {
         clientId: mqttClientId,
         clean: true,
-        connectTimeout: 7000,
-        reconnectPeriod: 4000
+        connectTimeout: 30000,
+        reconnectPeriod: 3000
       });
 
       this.mqttClient.on("connect", () => {
@@ -169,16 +168,18 @@ export class NetworkManager {
 
       this.mqttClient.on("error", (err) => {
         console.warn("MQTT connection error on", brokerUrl, err.message);
-        if (!this.isConnected) {
-          this.currentBrokerIndex = (this.currentBrokerIndex + 1) % BROKERS.length;
-          setTimeout(() => {
-            if (!this.isConnected) this.connectMQTT();
-          }, 1500);
-        }
       });
 
       this.mqttClient.on("close", () => {
         this.isConnected = false;
+      });
+
+      this.mqttClient.on("offline", () => {
+        this.isConnected = false;
+      });
+
+      this.mqttClient.on("reconnect", () => {
+        console.log("MQTT reconnecting to", brokerUrl);
       });
     } catch (e) {
       console.warn("MQTT init error:", e);
@@ -193,7 +194,7 @@ export class NetworkManager {
       } catch (e) {}
     }
     // 2. Internet MQTT WebSocket (across different machines)
-    if (this.mqttClient && this.isConnected) {
+    if (this.mqttClient) {
       try {
         this.mqttClient.publish(topic, JSON.stringify(payload));
       } catch (e) {}
@@ -296,7 +297,7 @@ export class NetworkManager {
       }
 
       // 2. If sitting in a room as a player, send periodic heartbeat to lobby & ping in room
-      if (this.currentRoomId && (this.role === "player1" || this.role === "player2")) {
+      if (this.currentRoomId && (this.role && this.role.startsWith("player"))) {
         this.sendRoomHeartbeat();
         
         // Send ping within the room to keep live connection alive
@@ -331,8 +332,10 @@ export class NetworkManager {
     this.currentRoomId = roomId;
     const room = this.roomsState[roomId];
 
-    if (this.mqttClient && this.isConnected) {
-      this.mqttClient.subscribe(ROOM_TOPIC_PREFIX + roomId);
+    if (this.mqttClient) {
+      try {
+        this.mqttClient.subscribe(ROOM_TOPIC_PREFIX + roomId);
+      } catch (e) {}
     }
 
     if (!room.mode && gameMode) {
@@ -497,8 +500,10 @@ export class NetworkManager {
       roomState: room
     });
 
-    if (this.mqttClient && this.isConnected) {
-      this.mqttClient.unsubscribe(ROOM_TOPIC_PREFIX + roomId);
+    if (this.mqttClient) {
+      try {
+        this.mqttClient.unsubscribe(ROOM_TOPIC_PREFIX + roomId);
+      } catch (e) {}
     }
 
     this.currentRoomId = null;
@@ -606,6 +611,9 @@ export class NetworkManager {
       players
     });
     this.sendRoomHeartbeat();
+    if (this.onUnoWaitingUpdate) {
+      this.onUnoWaitingUpdate(players);
+    }
   }
 
   sendUnoStart(gameState) {
